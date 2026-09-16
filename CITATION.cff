@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+title: "Calibration Does Not Compose, Types Destroy Vagueness: The Hidden-Markov and Fuzzy Primitives Missing from System-One Decision Models"
+authors:
+  - family-names: Doan
+    given-names: Khoa
+type: article
+status: preprint
+date-released: 2026-09-17
+version: "0.3"
+repository-code: "https://github.com/dnakhoa/jev-deferred-crispification"
+keywords:
+  - Jev
+  - TypeSafe AI
+  - System One models
+  - RLCD
+  - calibration
+  - hidden Markov models
+  - fuzzy logic
+  - type-2 fuzzy sets
+  - deferred crispification
