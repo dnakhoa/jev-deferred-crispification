@@ -2,7 +2,9 @@
 
 **A position paper on TypeSafe AI's Jev and the "System One" class of decision models — and the two mathematical primitives they leave out.**
 
-> Preprint v1.0 · 17 Sept 2026 · **[Download the PDF](paper.pdf)** · [LaTeX source](paper.tex) · [Markdown draft](paper.md) · CC BY 4.0
+> **Anh Khoa Doan Ngoc** · Preprint v1.1 · 17 September 2026 · **[Download the PDF](paper.pdf)** · [LaTeX source](paper.tex) · CC BY 4.0
+>
+> [![DOI](https://img.shields.io/badge/DOI-pending%20Zenodo%20release-lightgrey)](#citation)
 
 ---
 
@@ -44,30 +46,35 @@ TypeSafe's own integration guidance is to "ask independent questions together �
 - **TCE** (trajectory calibration error): does the model's implied distribution of *errors per window* match reality? Hop-level ECE cannot tell you.
 - **AMS** (action-mass sensitivity): how much action mass moves under an ε-perturbation of evidence?
 
-## Reproduce the math
-
-`experiments/verify_lemma1.py` simulates a two-regime chain and checks the closed forms:
+## Reproduce everything (no GPU; ~1 minute on a laptop)
 
 ```bash
-python3 experiments/verify_lemma1.py
+python3 experiments/verify_lemma1.py     # closed forms of Lemma 1 vs simulation
+python3 experiments/verify_lemma2.py     # cliff cascade: typed+threshold vs fuzzy+defuzzify, adversarial and Gaussian noise
+python3 experiments/run_all.py           # E1–E5 -> results/RESULTS.md and results/results.json
 ```
 
-Output on the default parameters (a=0.05, b=0.10, e=(0.05, 0.40), T=50):
+Only NumPy and SciPy are required. On Google Colab: `!git clone https://github.com/dnakhoa/jev-deferred-crispification && cd jev-deferred-crispification && python3 experiments/run_all.py`.
 
-```
-var  N: sim 20.304  pred(3.5) 20.314   binomial 6.944
-P(all correct): sim 0.0071  indep (1-ebar)^T 0.0001
-```
+### Headline results (seed 0, full tables in [results/RESULTS.md](results/RESULTS.md))
 
-Simulated variance matches equation (3.5) to three decimals; the all-correct probability is ~70× the independent baseline that hop-level calibration implies.
+| Experiment | Memoryless typed head | BSF-S1 |
+|---|---|---|
+| E1 ECE inside the rare regime / after shift | 0.156 / 0.109 | 0.018 / 0.010 |
+| E2 TCE: KS p-value of window-error PIT | 3×10⁻³⁶ (fail) | 0.04 (pass) |
+| E2 dispersion vs binomial baseline | 1.88 (theory 1.94) | — |
+| E3 flip mass under ε-perturbation | Θ(ε), jumps of 1, cascade P=0.48 | 0 flips; signal change ≤ 0.21·ε |
+| E4 answer-flip rate when a predicate is asked twice | 6.8% (product / naive Bayes) | 0% (min t-norm) |
+| E5 CRPS on a diffuse borderline population | 0.25 (point) | 0.17 (type-2 Q) |
 
 ## Status
 
-- ✅ Full paper (15 pp., LaTeX) — [paper.pdf](paper.pdf)
-- ✅ Lemmas 1–2 stated and proved (Appendix B); closed forms numerically verified
+- ✅ Full paper (LaTeX) — [paper.pdf](paper.pdf)
+- ✅ Lemmas 1–2 stated and proved (Appendix B); both numerically verified (`verify_lemma1.py`, `verify_lemma2.py`)
 - ✅ BSF-S1 output object, composition algebras, and pseudocode complete
-- ✅ All Jev claims quoted from primary sources (TypeSafe launch post, docs, The Register); all academic citations verified
-- 🔲 Experiments E1–E5 (generators specified in Appendix D) — contributions welcome
+- ✅ Experiments E1–E5 run; TCE and AMS operationally defined (§7.1)
+- ✅ All Jev claims quoted from TypeSafe's launch post and documentation; all academic citations verified
+- 🔲 Ablations (EMA-smoothed head, hand-crafted HMM, BSF-S1 with A=I / thresholded μ / collapsed Q) — contributions welcome
 
 ## Scope and honesty
 
@@ -75,10 +82,12 @@ Jev is closed. Every claim about it is drawn from public material and applies to
 
 ## Citation
 
-See [CITATION.cff](CITATION.cff). Also on ResearchGate (link to follow).
+See [CITATION.cff](CITATION.cff). A Zenodo DOI will be minted from the next GitHub release; until then cite the repository URL and version tag. ResearchGate mirror to follow.
+
+**AI-usage statement.** Claude Fable 5.1 assisted with prose expansion, experiment code and typesetting under the author's direction. All claims, proofs, experimental design and responsibility are the author's. No AI system is an author.
 
 ## Sources on Jev
 
 - Almeida, D. [Introducing System One Models & Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev). TypeSafe AI, 15 Sept 2026.
 - TypeSafe AI. [System One — concepts](https://docs.typesafe.ai/concepts/system-one).
-- Claburn, T. [TypeSafe AI debuts model for machines that plays Doom](https://www.theregister.com/ai-and-ml/2026/09/16/typesafe-ai-debuts-model-for-machines-that-plays-doom/5296711). The Register, 16 Sept 2026.
+- Claburn, T. [TypeSafe AI debuts model for machines that plays Doom](https://www.theregister.com/ai-and-ml/2026/09/16/typesafe-ai-debuts-model-for-machines-that-plays-doom/5296711). The Register, 16 Sept 2026 (press coverage; all technical claims in the paper come from the two TypeSafe sources above).

@@ -38,21 +38,21 @@
 
 \title{\textbf{Calibration Does Not Compose, Types Destroy Vagueness:}\\[2pt]
 \large The Hidden-Markov and Fuzzy Primitives Missing from System-One Decision Models}
-\author{Khoa Doan\\ \small \texttt{khoa.doan@edge8.ai}}
-\date{\small Preprint v1.0 --- 17 September 2026}
+\author{Anh Khoa Doan Ngoc\\ \small \texttt{khoa.doan@edge8.ai}}
+\date{\small Preprint v1.1 --- 17 September 2026}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-System-one decision models---fast, non-generative networks that emit typed, calibrated probabilistic decisions for machine-to-machine pipelines, of which TypeSafe AI's Jev, trained by Reinforcement Learning for Calibrated Decisions (RLCD), is the announced instance---are audited by hop-level calibration on stationary held-out data. We show that this class omits two structural primitives: recursive belief over a latent state (the hidden-Markov primitive) and graded predicate membership (the fuzzy primitive). We prove two negative results. Lemma~1: when outcomes are coupled through a latent Markov regime, marginal calibration is not preserved under regime shift, trajectory error counts are overdispersed relative to the binomial baseline that hop-level calibration implies, with a closed-form inflation factor, and every permutation-invariant audit statistic---expected calibration error included---has exactly zero power to detect this. Lemma~2: thresholding a typed score makes the composed pipeline action discontinuous; an $\varepsilon$-perturbation of evidence flips a full action on a set of measure $\Theta(\varepsilon)$, every downstream hop then receives an $O(1)$ input change so the conditional flip probability is $\Theta(1)$, and under common-mode evidence coupling the all-hops-flip event has measure $\Theta(\varepsilon)$ rather than $\Theta(\varepsilon^H)$; a fuzzy membership composed by a t-norm and defuzzified once by a Lipschitz map keeps the action Lipschitz in the evidence. We state the Principle of Deferred Crispification and specify a reference architecture, Belief-State Fuzzy System-One (BSF-S1), whose output object carries a per-regime membership matrix, a calibrated distribution over the degree, and a scaled-likelihood vector over regimes, and collapses exactly once at the actuator at $O(K^2+KM)$ cost per step. Five experiments and two audit metrics (trajectory calibration error and action-mass sensitivity) convert the analysis into a testable program. The paper is architectural: Jev is closed, and nothing here is an empirical claim about its internals.
+System-one decision models---fast, non-generative networks that emit typed, calibrated probabilistic decisions for machine-to-machine pipelines, of which TypeSafe AI's Jev, trained by Reinforcement Learning for Calibrated Decisions (RLCD), is the announced instance---are audited by hop-level calibration on stationary held-out data. We show that this class omits two structural primitives: recursive belief over a latent state (the hidden-Markov primitive) and graded predicate membership (the fuzzy primitive). We prove two negative results. Lemma~1: when outcomes are coupled through a latent Markov regime, marginal calibration is not preserved under regime shift, trajectory error counts are overdispersed relative to the binomial baseline that hop-level calibration implies, with a closed-form inflation factor, and every permutation-invariant audit statistic---expected calibration error included---has exactly zero power to detect this. Lemma~2: thresholding a typed score makes the composed pipeline action discontinuous; an $\varepsilon$-perturbation of evidence flips a full action on a set of measure $\Theta(\varepsilon)$, every downstream hop then receives an $O(1)$ input change so the conditional flip probability is $\Theta(1)$, and when several hops threshold the same coupled quantity the all-hops-flip event has measure $\Theta(\varepsilon)$ rather than $\Theta(\varepsilon^H)$; a fuzzy membership composed by a t-norm and defuzzified once by a Lipschitz map keeps the action Lipschitz in the evidence. We state the Principle of Deferred Crispification and specify a reference architecture, Belief-State Fuzzy System-One (BSF-S1), whose output object carries a per-regime membership matrix, a calibrated distribution over the degree, and a scaled-likelihood vector over regimes, and collapses exactly once at the actuator at $O(K^2+KM)$ cost per step. Five CPU-scale experiments confirm each prediction, and two operationally defined audit metrics (trajectory calibration error and action-mass sensitivity) can be run against a closed model from the outside. The paper is architectural: Jev is closed, and nothing here is an empirical claim about its internals.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
 
 \subsection{The rise of system-one decision models}
 
-For most of the last five years the dominant interface to machine intelligence has been text: a prompt goes in, a string comes out, and software that wants a decision must parse, validate and threshold that string. On 15 September 2026 TypeSafe AI released Jev, which its authors describe as ``a frontier-intelligence function call: unstructured state in, typed probabilistic decisions out'' \citep{almeida2026jev}. Jev generates no text. Its output schema is fixed in advance through three primitives---\emph{Choice} (an enumeration with a probability attached to each option), \emph{Score} (a bounded scalar) and \emph{Noul}---and every answer is accompanied by a confidence score \citep{typesafe2026docs}. The published example is a routing decision returned as $\{\texttt{billing}: 0.08,\ \texttt{technical}: 0.85,\ \texttt{sales}: 0.07\}$ with confidence $0.82$ \citep{claburn2026register}. All outputs of a query are produced in a single parallel pass rather than autoregressively, which is where the speed comes from: end-to-end latency of 70--500\,ms, ``40$\times$--200$\times$ faster'' than frontier language models, input priced at \$0.042 per million tokens and output ``too cheap to meter'' \citep{almeida2026jev}; The Register computes a 238$\times$ cost advantage over a top-tier model \citep{claburn2026register}. The training method is named Reinforcement Learning for Calibrated Decisions (RLCD) and is said to optimise for ``answers with epistemically honest probabilities'' \citep{almeida2026jev}.
+For most of the last five years the dominant interface to machine intelligence has been text: a prompt goes in, a string comes out, and software that wants a decision must parse, validate and threshold that string. On 15 September 2026 TypeSafe AI released Jev, which its authors describe as ``a frontier-intelligence function call: unstructured state in, typed probabilistic decisions out'' \citep{almeida2026jev}. Jev generates no text. Its output schema is fixed in advance through three primitives---\emph{Choice} (an enumeration with a probability attached to each option), \emph{Score} (a bounded scalar) and \emph{Noul}---and every answer is accompanied by a confidence score; the documentation's own example is a ticket-routing Choice over \texttt{billing}, \texttt{technical} and \texttt{account}, returned with a probability per option \citep{typesafe2026docs}. All outputs of a query are produced in a single parallel pass rather than autoregressively, which is where the speed comes from: end-to-end latency of 70--500\,ms, ``40$\times$--200$\times$ faster'' than frontier language models, input priced at \$0.042 per million tokens and output ``too cheap to meter'' \citep{almeida2026jev}. The launch drew immediate trade-press coverage \citep{claburn2026register}; every technical statement in this paper is taken from TypeSafe's own launch post and documentation. The training method is named Reinforcement Learning for Calibrated Decisions (RLCD) and is said to optimise for ``answers with epistemically honest probabilities'' \citep{almeida2026jev}.
 
 We take this launch as the concrete instance of a class we call \emph{system-one decision models}: fast, memoryless, typed, calibrated decision heads intended to be consumed by software rather than by people. The class is new enough that its audit vocabulary has been borrowed wholesale from the classification literature. This paper asks whether that vocabulary is adequate.
 
@@ -77,7 +77,7 @@ Both omissions are \emph{structural}: they concern what object the model emits a
 
 \begin{itemize}[leftmargin=2em]
 \item[\textbf{C1}] A diagnosis of the temporal hole and Lemma~\ref{lem:compose} (calibration does not compose): prior-ratio mismatch under regime shift; overdispersion of trajectory error counts with a closed-form inflation factor; and a proof that every permutation-invariant audit statistic is blind to the effect.
-\item[\textbf{C2}] A diagnosis of the vagueness hole and Lemma~\ref{lem:cliff} (cliff cascade): discontinuity of the thresholded pipeline, $\Theta(\varepsilon)$ flip mass with $O(1)$ jumps, $\Theta(1)$ conditional cascade probability, $\Theta(\varepsilon)$ all-hops-flip under common-mode coupling, and Lipschitz continuity of the fuzzy alternative.
+\item[\textbf{C2}] A diagnosis of the vagueness hole and Lemma~\ref{lem:cliff} (cliff cascade): discontinuity of the thresholded pipeline, $\Theta(\varepsilon)$ flip mass with $O(1)$ jumps, $\Theta(1)$ conditional cascade probability, $\Theta(\varepsilon)$ all-hops-flip under coincident thresholds, and Lipschitz continuity of the fuzzy alternative.
 \item[\textbf{C3}] The Principle of Deferred Crispification.
 \item[\textbf{C4}] BSF-S1, a reference architecture with a specified output object, a composition algebra for each component, an exact forward filter over the scaled-likelihood component, and a single actuator collapse.
 \item[\textbf{C5}] An experimental program and two audit metrics: trajectory calibration error (TCE) and action-mass sensitivity (AMS).
@@ -87,7 +87,7 @@ Both omissions are \emph{structural}: they concern what object the model emits a
 
 \subsection{System-one decision models and RLCD}
 
-What is public about Jev \citep{almeida2026jev,typesafe2026docs,claburn2026register} is the following. The model ``evaluates a state and returns typed answers and probabilities''; its probabilities ``are optimized against outcomes to reflect uncertainty''; it ``does not write replies, produce code, or generate explanations of its reasoning''; and all outputs of a query are generated in parallel. Two further statements in the launch material are load-bearing for this paper. First, the recommended integration pattern is to ``ask independent questions together \ldots\ combine the answers with deterministic checks in code, then route the case'' \citep{typesafe2026docs}: the harness thresholds the returned probabilities. Second, the authors observe that ``the most reliable real-world workflows tend to have many independent, decomposed questions, with fine-grained behavior that's dependent on probabilities instead of discrete decisions. The end result is discrete branching'' \citep{almeida2026jev}. This is an accurate description of the pipeline whose composition properties Sections~\ref{sec:temporal} and~\ref{sec:vague} analyse. The launch material also claims consistency---the model ``returns similar answers for similar inputs''---which is a Lipschitz-type property of the \emph{score}; Lemma~\ref{lem:cliff} concerns what happens to that property once the score is thresholded.
+What is public about Jev \citep{almeida2026jev,typesafe2026docs} is the following. The model ``evaluates a state and returns typed answers and probabilities''; its probabilities ``are optimized against outcomes to reflect uncertainty''; it ``does not write replies, produce code, or generate explanations of its reasoning''; and all outputs of a query are generated in parallel. Two further statements in the launch material are load-bearing for this paper. First, the recommended integration pattern is to ``ask independent questions together \ldots\ combine the answers with deterministic checks in code, then route the case'' \citep{typesafe2026docs}: the harness thresholds the returned probabilities. Second, the authors observe that ``the most reliable real-world workflows tend to have many independent, decomposed questions, with fine-grained behavior that's dependent on probabilities instead of discrete decisions. The end result is discrete branching'' \citep{almeida2026jev}. This is an accurate description of the pipeline whose composition properties Sections~\ref{sec:temporal} and~\ref{sec:vague} analyse. The launch material also claims consistency---the model ``returns similar answers for similar inputs''---which is a Lipschitz-type property of the \emph{score}; Lemma~\ref{lem:cliff} concerns what happens to that property once the score is thresholded.
 
 Jev's weights, architecture and training data are closed. Every statement in this paper is about the \emph{class} of memoryless typed calibrated heads, of which Jev is the announced instance; nothing here is an empirical claim about Jev's internals.
 
@@ -208,12 +208,12 @@ Let evidence $x\in X\subset\R^n$ have distribution $P_X$. There are $H$ hops; ho
 P(a_{h+1}\text{ flips}\mid a_h\text{ flips}) \ \ge\ P_X\bigl(|f_{h+1}-\tau_{h+1}|\le c\,\delta_h\bigr) =: q_{h+1} = \Theta(1).
 \end{equation}
 The expected number of downstream flips triggered by one $\varepsilon$-perturbation, $\sum_h\prod_{j\le h}q_j$, does not vanish as $\varepsilon\to0$. In the sequential fuzzy pipeline hop $h{+}1$ receives $\mu_h$, whose change is at most $L\varepsilon$, so the total action change is at most $L_D(\sum_h L^h)\varepsilon$: geometric in $L$, still $O(\varepsilon)$.
-\item \textup{(Common-mode coupling.)} If the hops' scores share a latent scalar $z$ with $f_h(x)=\phi_h(z,\xi_h)$, each $\phi_h$ monotone in $z$, and the perturbation acts on $z$, then $P(\text{all } H \text{ hops flip})=\Theta(\varepsilon)$; under independent per-hop perturbations it is $\prod_h\Theta(\varepsilon)=\Theta(\varepsilon^H)$.
+\item \textup{(Common-mode coupling.)} Suppose the hops' scores are monotone functions of a shared latent scalar $z$, $f_h(x)=\phi_h(z,\xi_h)$, and the perturbation acts on $z$. If the hops' crossing points coincide---there is a $z^\ast$ with $\phi_h(z^\ast,\xi_h)=\tau_h$ for every $h$, as when several hops threshold the same score (a model threshold followed by a harness threshold) or evaluate the same regime-dependent predicate---then $P(\text{all } H \text{ hops flip})=\Theta(\varepsilon)$. If instead the crossing points are spread with a continuous joint density, $P(\text{all flip})=\Theta(\varepsilon^H)$ even under a common-mode perturbation, the same order as under independent per-hop perturbations. Coupling therefore bites through \emph{coincident thresholds}, which is precisely the double-collapse pattern of Section~\ref{sec:principle}.
 \end{enumerate}
 \end{lemma}
 
 \begin{proof}[Proof sketch]
-(i) A step function composed with a continuous map is discontinuous on the preimage of the threshold; \eqref{eq:lip} chains Lipschitz bounds using $|\prod_h a_h-\prod_h b_h|\le\sum_h|a_h-b_h|$ on $[0,1]^H$ (telescoping) and $|\min a-\min b|\le\max_h|a_h-b_h|$. (ii) $F_\varepsilon$ contains the band $\{\tau_h-c\varepsilon\le f_h<\tau_h\}$, reachable by moving $\varepsilon$ along $\nabla f_h$, and is contained in $\{|f_h-\tau_h|\le L\varepsilon \text{ for some } h\}$ by Lipschitzness; both have mass $\Theta(\varepsilon)$ by the density assumption. (iii) is \eqref{eq:cascade}. (iv) The set of $z$ within $\varepsilon$ of the common crossing value has measure $\Theta(\varepsilon)$ and monotonicity forces simultaneous crossing. Appendix~\ref{app:proofs}.
+(i) A step function composed with a continuous map is discontinuous on the preimage of the threshold; \eqref{eq:lip} chains Lipschitz bounds using $|\prod_h a_h-\prod_h b_h|\le\sum_h|a_h-b_h|$ on $[0,1]^H$ (telescoping) and $|\min a-\min b|\le\max_h|a_h-b_h|$. (ii) $F_\varepsilon$ contains the band $\{\tau_h-c\varepsilon\le f_h<\tau_h\}$, reachable by moving $\varepsilon$ along $\nabla f_h$, and is contained in $\{|f_h-\tau_h|\le L\varepsilon \text{ for some } h\}$ by Lipschitzness; both have mass $\Theta(\varepsilon)$ by the density assumption. (iii) is \eqref{eq:cascade}. (iv) With coincident crossing points the set of $z$ within $\varepsilon$ of $z^\ast$ has measure $\Theta(\varepsilon)$ and monotonicity forces simultaneous crossing; with spread crossing points all $H$ of them must lie within a $2\varepsilon$ window that $z$ then enters, an event of order $\varepsilon^{H-1}\cdot\varepsilon$. Appendix~\ref{app:proofs}.
 \end{proof}
 
 \begin{remark}[On the defuzzifier]
@@ -221,7 +221,7 @@ Inequality \eqref{eq:lip} requires $D$ Lipschitz. The centroid $D(\mu_{\mathrm{o
 \end{remark}
 
 \begin{remark}[What the lemma does not claim]
-For a smooth score distribution, the \emph{expected} $L^1$ sensitivity of the first hop is $O(\varepsilon)$ in both pipelines. The separation is in the per-point worst case (a jump of $1$ versus a bound of $L\varepsilon$), in the cascade (a $\Theta(1)$ conditional flip probability versus $O(\varepsilon)$ propagation), and in common-mode coupling ($\Theta(\varepsilon)$ versus $\Theta(\varepsilon^H)$). Readers who have seen ``fuzzy is smoother'' asserted without qualification should note that (iii) and (iv) are where the content lies.
+For a smooth score distribution, the \emph{expected} $L^1$ sensitivity of the first hop is $O(\varepsilon)$ in both pipelines. The separation is in the per-point worst case (a jump of $1$ versus a bound of $L\varepsilon$), in the cascade (a $\Theta(1)$ conditional flip probability versus $O(\varepsilon)$ propagation), and in coincident thresholds ($\Theta(\varepsilon)$ versus $\Theta(\varepsilon^H)$). Readers who have seen ``fuzzy is smoother'' asserted without qualification should note that (iii) and (iv) are where the content lies.
 \end{remark}
 
 \subsection{The wrong algebra}
@@ -352,25 +352,63 @@ Pass $O(x_t)$ and, for convenience, $b_t$ itself flagged as \emph{not composable
 \item \emph{Stale $A$ under drift.} Detected by the surprise monitor; repaired by incremental Stage~1.
 \end{itemize}
 
-\section{Experimental Program}\label{sec:experiments}
+\section{Experiments}\label{sec:experiments}
 
-\paragraph{Common generator (Appendix~\ref{app:gen}).} A $K$-regime chain with tunable $\lambda$, per-regime Gaussian emissions in $\R^n$, and a per-regime linear label rule $d=\ind{w_s\cdot o+c_s>0}$ with regime-dependent $(w_s,c_s)$ so that $P(d\mid o,s)$ differs across $s$; a borderline population whose elicited degrees are drawn from $\mathrm{Beta}(\alpha(o),\beta(o))$.
+All experiments run on a laptop CPU in about a minute, use only NumPy and SciPy, and are reproduced by one command in the repository. Models are deliberately tiny---logistic heads on quadratic features and a two-regime filter---because every claim concerns the output object and its composition, not capacity.
 
-\paragraph{E1 Regime-shift stress.} Train a memoryless head on stationary $\pi$; evaluate window-conditional ECE inside each regime and across a forced shift to $\pi'$. Prediction (Lemma~\ref{lem:compose}(i)): stationary ECE $\approx0$, within-regime ECE $\approx\E|\Delta(o)|$; BSF-S1 $\approx0$ in both.
+\subsection{Operational definitions of the two audit metrics}
 
-\paragraph{E2 Trajectory-level calibration.} \emph{Metric TCE$_w$}: every model implies a joint predictive distribution for the window error count $N_w$ (memoryless head: Poisson-binomial with its own $p_t$; BSF-S1: forward-filter/backward-sample). TCE$_w$ is the discrepancy between implied and realised distributions of $N_w$, reported as the $L^1$ distance of the probability-integral-transform histogram from uniform together with the dispersion ratio $\hat\varphi=\Var_{\mathrm{real}}(N_w)/\Var_{\mathrm{implied}}(N_w)$. Prediction: the memoryless head passes hop-ECE and shows $\hat\varphi\approx$ \eqref{eq:phi}; error-run lengths are geometric with means $1/a,1/b$; BSF-S1 gives $\hat\varphi\approx1$.
+\begin{definition}[Trajectory calibration error, TCE$_w$]
+Fix a window length $w$. Every decision model implies a joint predictive distribution for the window error count $N_w=\sum_{t\in\text{window}}E_t$: a memoryless head implies the Poisson-binomial distribution of independent Bernoulli$(1-\max(p_t,1-p_t))$ errors, which is the only joint it can express; BSF-S1 implies the distribution obtained by forward-filtering, backward-sampling regime paths (Appendix~\ref{app:ffbs}) and drawing errors from the per-regime heads. Let $F_i$ be the implied CDF for window $i$ and $n_i$ the realised count. The randomised probability integral transform is $u_i\sim\mathrm{Unif}[F_i(n_i-1),F_i(n_i)]$. TCE$_w$ reports (a) the Kolmogorov--Smirnov $p$-value of $\{u_i\}$ against $\mathrm{Unif}[0,1]$ and (b) the dispersion ratio $\hat\varphi=\Var_{\text{realised}}(N_w)/\Var_{\text{implied}}(N_w)$, where the implied variance is the model's total variance (within-window variance plus variance of window means). A model \emph{passes} if KS does not reject at $\alpha=0.01$ and $\hat\varphi\in[0.8,1.25]$.
+\end{definition}
 
-\paragraph{E3 Cliff cascade.} \emph{Metric AMS$(\varepsilon)$} $=\E_x\bigl[\sup_{\norm\delta\le\varepsilon}|\mathrm{action}(x+\delta)-\mathrm{action}(x)|\bigr]$ with a gradient-ascent inner maximisation, and \emph{flip mass FM$(\varepsilon)$} $=P(\text{action changes})$. Prediction (Lemma~\ref{lem:cliff}): crisp FM$(\varepsilon)/\varepsilon$ converges to a constant in $[c\,p(\tau),2L\,p(\tau)]$ and AMS $=$ FM; fuzzy FM $=0$ and AMS$(\varepsilon)/\varepsilon\le L_DHL$. Sequential variant: downstream flips per upstream flip, $\Theta(1)$ crisp versus $O(\varepsilon)$ fuzzy. Common-mode variant: $\log P(\text{all flip})$ against $\log\varepsilon$ has slope $1$ when coupled and slope $H$ when independent.
+\begin{definition}[Action-mass sensitivity, AMS$(\varepsilon)$]
+Fix a perturbation model: \emph{adversarial}, $\delta=\argmax_{\norm{\delta}\le\varepsilon}$ of the action change (for logistic scores, a move of length $\varepsilon$ along the weight vector of the gate nearest its threshold), or \emph{Gaussian}, $\delta\sim\mathcal N(0,\varepsilon^2I)$. For a discrete final action $a$, AMS$(\varepsilon)=\E_x\bigl[\mathrm{TV}(a(x),a(x+\delta))\bigr]=P(a(x+\delta)\ne a(x))$, the per-point total variation, equivalently the flip mass. For a continuous actuator signal $u$, AMS$(\varepsilon)=\E_x|u(x+\delta)-u(x)|$. The population-level total variation $|\E a(x+\delta)-\E a(x)|$ is \emph{not} used: flips in the two directions cancel and it is near zero for every pipeline. Report AMS$(\varepsilon)/\varepsilon$ over a grid of $\varepsilon$; Lemma~\ref{lem:cliff} predicts a constant $\approx\sum_h2p_h(\tau_h)$ for the crisp pipeline and a constant $\le L_DHL$ for the fuzzy signal.
+\end{definition}
 
-\paragraph{E4 Composition-algebra ablation.} One rule base composed with minimum, product, and naive-Bayes product of probabilities, with one predicate duplicated. Prediction: product and naive-Bayes exhibit the $\mu^2$ double count; minimum is invariant; downstream error tracks the double count.
+\subsection{Generator}
+The two-regime stream of Appendix~\ref{app:gen} with $a=0.01$, $b=0.04$ ($\pi=(0.8,0.2)$, $\lambda=0.95$), emission means $0.5$ apart with unit covariance so that one observation is weakly informative about the regime, and a logistic label link $P(d=1\mid o,s)=\sigma(3\,o_{k(s)})$ with $k(0)=1$, $k(1)=2$ so that the per-regime heads are well specified. BSF-S1 is trained with regime labels (the oracle setting of Section~\ref{sec:threats}); both models are temperature-scaled on a held-out split.
 
-\paragraph{E5 Type-2 separation.} Two borderline populations with identical mean degree $0.5$, one elicited from $\mathrm{Beta}(50,50)$ (sharp) and one from $\mathrm{Beta}(1,1)$ (diffuse). Prediction: a point head has identical CRPS on both; $Q$ has lower CRPS on the sharp population.
+\subsection{E1: Regime-shift stress (Lemma~\ref{lem:compose}(i))}
+\begin{table}[h]\centering\small
+\begin{tabular}{@{}lcc@{}}\toprule
+Evaluation & Memoryless ECE & BSF-S1 ECE\\\midrule
+Stationary stream, same $\pi$ & 0.025 & 0.009\\
+Time steps inside regime 0 & 0.065 & 0.015\\
+Time steps inside regime 1 (the rare regime) & 0.156 & 0.017\\
+Shifted stream $\pi'=(0.2,0.8)$, stale $A$ & 0.109 & 0.010\\
+\bottomrule\end{tabular}
+\caption{E1. The memoryless head passes the stationary audit and is miscalibrated during every sojourn in the rare regime and after the shift; BSF-S1 stays calibrated with a transition matrix that is stale on the shifted stream. Accuracy on the shifted stream: memoryless 0.666, BSF-S1 0.807.}
+\end{table}
 
-\paragraph{Baselines.} Memoryless calibrated head; head with exponential smoothing of scores (a heuristic memory, predicted to reduce $\hat\varphi$ while breaking hop-ECE); HMM with hand-crafted Gaussian emissions on encoder features; BSF-S1 full; BSF-S1 with $A=I$; with $\mu$ thresholded; with $Q$ collapsed to its mean.
+\subsection{E2: Trajectory calibration (Lemma~\ref{lem:compose}(ii)--(iv))}
+Hop-level ECE of the memoryless head is 0.021 on the stream and 0.021 on its random shuffle: identical, as Lemma~\ref{lem:compose}(iv) requires. The realised variance of its window error count is 1.877 times the binomial baseline that hop-level calibration implies; equation~\eqref{eq:varN} evaluated at the head's measured regime error rates $e=(0.177,0.376)$ predicts 1.941. The empirical lag covariance of errors matches $\lambda^k\Var_\pi(e)$ of \eqref{eq:cov} for $k=1,\dots,20$ with relative $L^2$ error 0.111.
+\begin{table}[h]\centering\small
+\begin{tabular}{@{}lccc@{}}\toprule
+Model & $\hat\varphi$ & KS $p$-value & TCE verdict\\\midrule
+Memoryless (implied joint: independence) & 1.764 & $3.1\times10^{-36}$ & fail\\
+BSF-S1 (implied joint: FFBS) & 1.119 & $0.04$ & pass\\
+\bottomrule\end{tabular}
+\caption{E2, $w=50$. Both models have small hop-level ECE; only the memoryless head's implied joint is rejected.}
+\end{table}
+
+\subsection{E3: Cliff cascade (Lemma~\ref{lem:cliff})}
+Three logistic gates on five-dimensional Gaussian evidence, $\tau=\tfrac12$, product t-norm, identity or regularised-centroid defuzzifier. Single hop, adversarial perturbation: crisp FM$(\varepsilon)/\varepsilon$ is 0.740, 0.742, 0.739, 0.777, 0.784 for $\varepsilon\in\{0.002,0.005,0.01,0.02,0.05\}$ against the predicted limit $2p(0)=0.798$; fuzzy flip mass is exactly $0$ and AMS$/\varepsilon=$ 0.207 at every $\varepsilon$, below the bound $L=\tfrac14$. Sequential cascade: after a crisp gate flips, the next gate flips with probability 0.484 independent of $\varepsilon$, while the fuzzy hop's membership moves by 0.0003 at $\varepsilon=0.01$. Coupling, $H=3$: the log--log slope of $P(\text{all flip})$ against $\varepsilon$ is 1.00 with coincident crossing points, 1.79 with crossing points spread by a Gaussian of width $0.3$ (between the two regimes at these $\varepsilon$), and 2.97 under independent perturbations, against the predicted $1$, $H$ and $H$. The full-pipeline check with a Mamdani actuator and both perturbation models is \texttt{experiments/verify\_lemma2.py}: the crisp pipeline's flip mass is $6$--$10\times$ the fuzzy pipeline's at every $\varepsilon$ under both noise models, and the population total variation is below $10^{-3}$ for both, as the definition anticipates.
+
+\subsection{E4: Composition algebra}
+Rule ``$A$ and $B$'' evaluated with $A$ entered once and twice. Idempotence gap $\E|T(a,a,b)-T(a,b)|$: minimum 0.000, product 0.084; the downstream decision at threshold $\tfrac12$ flips on 6.8\% of inputs under product and on none under minimum. Naive-Bayes multiplication of probabilities is numerically the product case; the difference is that it \emph{asserts independence} of two copies of one predicate.
+
+\subsection{E5: Type-2 separation}
+Two borderline populations with mean degree $\tfrac12$: sharp, elicited from Beta$(50,50)$, and diffuse, from Beta$(1,1)$. The point head emits 0.502 and 0.507: the same object. The type-2 head fits Beta$(49,49)$ and Beta$(1.0,1.0)$. CRPS on the diffuse population: point head 0.251 (the MAE, $\to\tfrac14$), type-2 head 0.167 ($\to\tfrac16$); on the sharp population 0.039 and 0.027. A single number cannot say whether the degree is known; $Q$ can, and is rewarded for it by a proper score.
+
+\subsection{Baselines and ablations not yet run}
+Exponential smoothing of the memoryless score; an HMM with hand-crafted Gaussian emissions; BSF-S1 with $A=I$, with $\mu$ thresholded, and with $Q$ collapsed to its mean. These are the natural next step for a replication.
 
 \section{Threats to Validity and Open Problems}\label{sec:threats}
 
 \paragraph{Jev is closed.} All statements are about the class of memoryless typed calibrated heads as publicly described; nothing here is an empirical refutation of Jev. Two public facts limit what we can assert. The Score primitive returns a bounded scalar, so some vagueness can be expressed by schema choice, though as a single number rather than a type-2 pair. The State object passed to each call may include whatever history the integrator chooses to serialise, so a harness can approximate memory by prompt construction. Neither changes the structural claim: no exact recursion over a latent regime exists inside the model, and no membership-plus-uncertainty pair exists in the output type.
+
+\paragraph{Oracle regime labels.} In Section~\ref{sec:experiments} the regime head and the initial transition estimate use regime labels that a real deployment would not have. The claim being tested is what the filter does \emph{given} an emission model, not whether regimes are identifiable from unlabelled streams; the latter is the $K$-identifiability problem of Section~\ref{sec:arch} and is left open.
 
 \paragraph{Membership ground truth.} Elicited degrees depend on the elicitation protocol. The type-1/type-2 renormalisation across regimes (Section~\ref{sec:open}) is an open semantic question, stated as such: the architecture is designed so that the question is deferred to the actuator rather than answered implicitly by the model.
 
@@ -391,6 +429,9 @@ Pass $O(x_t)$ and, for convenience, $b_t$ itself flagged as \emph{not composable
 \section{Conclusion}
 
 Two primitives, two lemmas, one principle, one architecture. System-one decision models are the right idea---software needs an interface it can depend on, and typed calibrated probabilities are a far better interface than strings---but the type signature is not yet finished. Give these models a memory of the world's hidden state and a language for its borderline cases, carry both to the point of action, and collapse nothing until that moment.
+
+\section*{Acknowledgments and AI-usage statement}
+The author used Claude Fable 5.1 (Anthropic) as a writing and coding assistant: it expanded outline bullets into prose, drafted the experiment code, and typeset the manuscript under the author's direction. All claims, lemmas, proofs, experimental design, interpretation of results and errors are the author's sole responsibility. No AI system is an author of this work. Code, results and the full revision history are at \url{https://github.com/dnakhoa/jev-deferred-crispification}.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{99}
@@ -519,7 +560,7 @@ Lower bound: for $x$ with $\tau_h-c\varepsilon\le f_h(x)<\tau_h$, moving distanc
 \end{proof}
 
 \begin{proof}[Proof of Lemma~\ref{lem:cliff}(iii),(iv)]
-(iii) is \eqref{eq:cascade} with $\delta_h$ fixed. (iv): the set of $z$ within $\varepsilon$ of the common crossing value $z^\ast$ has $P_Z$-measure $\approx p_Z(z^\ast)\varepsilon$, and monotonicity of each $\phi_h$ in $z$ forces all $H$ thresholds to be crossed together. Under independent per-hop perturbations the flip events are independent and the product of $H$ masses of order $\varepsilon$ is of order $\varepsilon^H$.
+(iii) is \eqref{eq:cascade} with $\delta_h$ fixed. (iv): with a common crossing value $z^\ast$, the set of $z$ within $\varepsilon$ of $z^\ast$ has $P_Z$-measure $\approx p_Z(z^\ast)\varepsilon$, and monotonicity of each $\phi_h$ in $z$ forces all $H$ thresholds to be crossed together. If the per-hop crossing values $z_h^\ast(\xi_h)$ have a continuous joint density, all $H$ must fall in a window of width $2\varepsilon$ (measure $\Theta(\varepsilon^{H-1})$) and $z$ must fall in the intersection (measure $\Theta(\varepsilon)$), giving $\Theta(\varepsilon^H)$; under independent per-hop perturbations the flip events are independent and the product of $H$ masses of order $\varepsilon$ is again $\Theta(\varepsilon^H)$.
 \end{proof}
 
 \section{Forward-Filter/Backward-Sample for TCE}\label{app:ffbs}
@@ -529,7 +570,7 @@ Run Algorithm~1 to obtain $b_{1:T}$. Sample $s_T\sim b_T$; for $t=T-1,\dots,1$ s
 \begin{algorithmic}[1]
 \Function{RegimeStream}{$T,a,b,n$}
   \State $A\gets\begin{pmatrix}1-a&a\\b&1-b\end{pmatrix}$;\ $\pi\gets(b,a)/(a+b)$;\ $s_0\sim\pi$;\ $s_{t+1}\sim A[s_t,:]$
-  \State $o_t\sim\mathcal N(m_{s_t},\Sigma_{s_t})$ in $\R^n$;\quad $d_t\gets\ind{w_{s_t}\cdot o_t+c_{s_t}>0}$
+  \State $o_t\sim\mathcal N(m_{s_t},\Sigma_{s_t})$ in $\R^n$;\quad $d_t\sim\mathrm{Bernoulli}\bigl(\sigma(w_{s_t}\cdot o_t+c_{s_t})\bigr)$ \Comment{logistic link so heads are well specified}
   \State \Return $(o,d,s)$
 \EndFunction
 \Function{BorderlinePopulation}{$N$, sharp}

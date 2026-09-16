@@ -1,0 +1,296 @@
+{
+  "E1": {
+    "A_true": [
+      [
+        0.99,
+        0.01
+      ],
+      [
+        0.04,
+        0.96
+      ]
+    ],
+    "A_hat": [
+      [
+        0.9657483182041061,
+        0.03425168179589385
+      ],
+      [
+        0.04074444137057629,
+        0.9592555586294238
+      ]
+    ],
+    "stationary": {
+      "memoryless": 0.024525415680797562,
+      "bsf_s1": 0.009464928488645465
+    },
+    "window_conditional": {
+      "memoryless": {
+        "0": 0.06549894032296702,
+        "1": 0.156073767583961
+      },
+      "bsf_s1": {
+        "0": 0.015124941528474269,
+        "1": 0.017458195409592543
+      }
+    },
+    "shifted": {
+      "pi_prime": [
+        0.20000000000000018,
+        0.7999999999999999
+      ],
+      "memoryless": 0.10930752788693364,
+      "bsf_s1": 0.009731769274490697
+    },
+    "accuracy_shifted": {
+      "memoryless": 0.6663,
+      "bsf_s1": 0.8071666666666667
+    },
+    "_seconds": 4.1
+  },
+  "E2": {
+    "regime_error_rates_memoryless": [
+      0.17732018189969898,
+      0.37599726464554367
+    ],
+    "covariance_test": {
+      "k": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "empirical": [
+        0.006702137633190823,
+        0.005501025210760532,
+        0.0049554243960797,
+        0.005304363255325526,
+        0.005733852130266277,
+        0.004838163703055452,
+        0.004242482992773729,
+        0.004521947527505494,
+        0.004101268503163205,
+        0.004400225853963484,
+        0.003748936834879586,
+        0.0035477502820846192,
+        0.0024767934946357505,
+        0.0037510814950232514,
+        0.0022744015968488122,
+        0.003048548195278105,
+        0.003097425261486125,
+        0.002395967120704311,
+        0.003056165693954622,
+        0.0018294087993996938
+      ],
+      "theory_lambda_k_VarPi": [
+        0.006421155052051678,
+        0.006100097299449094,
+        0.005795092434476639,
+        0.005505337812752807,
+        0.005230070922115165,
+        0.004968567376009407,
+        0.0047201390072089365,
+        0.0044841320568484895,
+        0.004259925454006065,
+        0.0040469291813057615,
+        0.003844582722240473,
+        0.0036523535861284493,
+        0.0034697359068220266,
+        0.0032962491114809254,
+        0.0031314366559068788,
+        0.002974864823111535,
+        0.002826121581955958,
+        0.0026848155028581597,
+        0.0025505747277152517,
+        0.002423045991329489
+      ],
+      "relative_l2_error": 0.11113174861621165
+    },
+    "phi_theory_window_w": 1.9413708782323507,
+    "phi_theory_asymptotic": 2.492396521424541,
+    "hop_level": {
+      "memoryless_ece": 0.02121824815562688,
+      "memoryless_ece_shuffled": 0.021218248155626854
+    },
+    "memoryless": {
+      "phi_hat": 1.7644577292867594,
+      "phi_hat_vs_binomial": 1.8768362166906956,
+      "pit_l1": 0.525,
+      "ks_pvalue": 3.070555767019375e-36,
+      "mean_errors_per_window": 11.045
+    },
+    "bsf_s1": {
+      "phi_hat": 1.1192214115770942,
+      "pit_l1": 0.1,
+      "ks_pvalue": 0.03824548243611292,
+      "mean_errors_per_window": 12.0075
+    },
+    "window": 50,
+    "n_windows": 800,
+    "_seconds": 56.5
+  },
+  "E3": {
+    "single_hop": [
+      {
+        "eps": 0.002,
+        "crisp_FM": 0.00148,
+        "crisp_FM_over_eps": 0.74,
+        "fuzzy_FM": 0.0,
+        "fuzzy_AMS_over_eps": 0.20659927949409343
+      },
+      {
+        "eps": 0.005,
+        "crisp_FM": 0.00371,
+        "crisp_FM_over_eps": 0.742,
+        "fuzzy_FM": 0.0,
+        "fuzzy_AMS_over_eps": 0.20659914954721434
+      },
+      {
+        "eps": 0.01,
+        "crisp_FM": 0.00739,
+        "crisp_FM_over_eps": 0.739,
+        "fuzzy_FM": 0.0,
+        "fuzzy_AMS_over_eps": 0.20659851713375124
+      },
+      {
+        "eps": 0.02,
+        "crisp_FM": 0.015545,
+        "crisp_FM_over_eps": 0.77725,
+        "fuzzy_FM": 0.0,
+        "fuzzy_AMS_over_eps": 0.20659569296828847
+      },
+      {
+        "eps": 0.05,
+        "crisp_FM": 0.039195,
+        "crisp_FM_over_eps": 0.7838999999999999,
+        "fuzzy_FM": 0.0,
+        "fuzzy_AMS_over_eps": 0.20657474803057468
+      }
+    ],
+    "sequential": [
+      {
+        "eps": 0.002,
+        "crisp_P_hop2_flips_given_hop1_flip": 0.48986486486486486,
+        "fuzzy_sup_change_hop2": 0.00011452560857795884
+      },
+      {
+        "eps": 0.005,
+        "crisp_P_hop2_flips_given_hop1_flip": 0.4838274932614555,
+        "fuzzy_sup_change_hop2": 0.0002863083951736299
+      },
+      {
+        "eps": 0.01,
+        "crisp_P_hop2_flips_given_hop1_flip": 0.479702300405954,
+        "fuzzy_sup_change_hop2": 0.0005725968988587344
+      },
+      {
+        "eps": 0.02,
+        "crisp_P_hop2_flips_given_hop1_flip": 0.470890961724027,
+        "fuzzy_sup_change_hop2": 0.0011451057043215642
+      },
+      {
+        "eps": 0.05,
+        "crisp_P_hop2_flips_given_hop1_flip": 0.4693200663349917,
+        "fuzzy_sup_change_hop2": 0.002861933127181458
+      }
+    ],
+    "common_mode": [
+      {
+        "eps": 0.002,
+        "P_all_flip_coinciding": 0.00155,
+        "P_all_flip_spread": 0.0,
+        "P_all_flip_independent": 3.889443749999999e-09
+      },
+      {
+        "eps": 0.005,
+        "P_all_flip_coinciding": 0.003895,
+        "P_all_flip_spread": 0.0,
+        "P_all_flip_independent": 5.95543e-08
+      },
+      {
+        "eps": 0.01,
+        "P_all_flip_coinciding": 0.00799,
+        "P_all_flip_spread": 5e-06,
+        "P_all_flip_independent": 4.528559815e-07
+      },
+      {
+        "eps": 0.02,
+        "P_all_flip_coinciding": 0.0156,
+        "P_all_flip_spread": 1e-05,
+        "P_all_flip_independent": 3.5734423725e-06
+      },
+      {
+        "eps": 0.05,
+        "P_all_flip_coinciding": 0.039205,
+        "P_all_flip_spread": 8.5e-05,
+        "P_all_flip_independent": 5.59233786825e-05
+      }
+    ],
+    "loglog_slope_coinciding": 1.0032039551595286,
+    "loglog_slope_spread": 1.790450675890512,
+    "loglog_slope_independent": 2.9709299906996454,
+    "H": 3,
+    "theory": {
+      "crisp_FM_over_eps_limit": 0.79788,
+      "fuzzy_AMS_over_eps_bound": 0.25
+    },
+    "_seconds": 0.1
+  },
+  "E4": {
+    "min": {
+      "idempotence_gap": 0.0,
+      "answer_flip_rate": 0.0
+    },
+    "product": {
+      "idempotence_gap": 0.08352909080432033,
+      "answer_flip_rate": 0.0677
+    },
+    "naive_bayes": {
+      "idempotence_gap": 0.08352909080432033,
+      "answer_flip_rate": 0.0677
+    },
+    "note": "naive_bayes equals product numerically; the difference is semantic: product-as-t-norm is truth-functional, product-as-probability asserts independence of two copies of the same predicate, which is false by construction.",
+    "_seconds": 0.0
+  },
+  "E5": {
+    "sharp": {
+      "point_head_output": 0.5016106822195951,
+      "point_head_CRPS(=MAE)": 0.03877309559436078,
+      "Q_head_fit_(alpha,beta)": [
+        49.45411067745756,
+        49.13790306117112
+      ],
+      "Q_head_CRPS": 0.027321527985410606
+    },
+    "diffuse": {
+      "point_head_output": 0.507440440871308,
+      "point_head_CRPS(=MAE)": 0.2505484323784541,
+      "Q_head_fit_(alpha,beta)": [
+        1.0369670987002482,
+        1.0132215249863936
+      ],
+      "Q_head_CRPS": 0.16709098702447328
+    },
+    "separation": {
+      "point_head_outputs_identical": true,
+      "Q_head_concentration_ratio": 48.0892404725868
+    },
+    "_seconds": 0.0
+  }
+}
