@@ -1,102 +1,112 @@
-"""E2 — Trajectory-level calibration (Lemma 1(ii)-(iv)); metric TCE_w.
+"""E2 — Trajectory calibration, TCE (Lemma 1(ii)-(iv)), round-2 version.
 
-Every model implies a joint predictive distribution for the window error
-count N_w. Memoryless head: Poisson-binomial with its own p_t (independence
-is the only joint it can imply). BSF-S1: forward-filter / backward-sample.
-TCE_w = (dispersion ratio phi_hat, PIT-histogram L1 distance from uniform).
-Also: hop-level ECE is identical for a stream and its shuffle (Lemma 1(iv)).
+Five seeds. Models: memoryless, oracle memoryless, BSF-S1 (oracle labels), exact filter.
+TCE_w components: dispersion ratio phi_hat (realised var / model-implied total var) with a
+window-bootstrap 95% CI — the clustering-specific statistic — and the KS p-value of the
+randomised PIT, which also rejects for plain hop-level miscalibration and is therefore
+secondary. Control: the memoryless head on a time-SHUFFLED stream (no clustering) should
+give phi_hat ~ 1 even if KS rejects.
+Verdict rule (fixed before looking): pass iff the phi_hat 95% CI contains 1.
+Also: hop-level ECE identical on stream and shuffle (Lemma 1(iv)); realised variance vs the
+binomial baseline against eq. (3.5) at the head's measured regime error rates; lag-covariance
+test of eq. (3.4).
 """
 import numpy as np
 from scipy.stats import kstest
-from common import regime_stream, MemorylessHead, BSFS1, ece, ffbs
+from common import *
 
 
 def poisson_binomial_cdf(p):
-    """Exact distribution of sum of independent Bernoulli(p_i)."""
     dist = np.array([1.0])
-    for q in p:
-        dist = np.convolve(dist, [1 - q, q])
+    for q in p: dist = np.convolve(dist, [1 - q, q])
     return np.cumsum(dist)
 
 
-def pit_l1(pit, bins=10):
-    h, _ = np.histogram(pit, bins=bins, range=(0, 1))
-    return float(np.abs(h / h.sum() - 1 / bins).sum())
-
-
-def run(seed=0, T_train=30000, T_test=40000, w=50, R=200):
-    rng = np.random.default_rng(seed)
-    a, b = 0.01, 0.04                              # pi=(0.8,0.2), lambda=0.95
-    o, d, s, A, pi = regime_stream(T_train, a, b, rng)
-    ml = MemorylessHead().fit(o, d)
-    bs = BSFS1().fit(o, d, s)
-
-    o2, d2, s2, _, _ = regime_stream(T_test, a, b, rng)
-    p_ml = ml.predict(o2)
-    p_bs, bel, H = bs.predict(o2)
-    dec_ml = (p_ml >= .5).astype(int); err_ml = (dec_ml != d2).astype(int)
-    dec_bs = (p_bs >= .5).astype(int); err_bs = (dec_bs != d2).astype(int)
-
-    # ---- Lemma 1(iv): hop-ECE is permutation-invariant
-    perm = rng.permutation(T_test)
-    hop = {"memoryless_ece": ece(p_ml, d2), "memoryless_ece_shuffled": ece(p_ml[perm], d2[perm])}
-
-    # ---- windows
-    nwin = T_test // w
-    real_ml = np.array([err_ml[i*w:(i+1)*w].sum() for i in range(nwin)])
-    real_bs = np.array([err_bs[i*w:(i+1)*w].sum() for i in range(nwin)])
-
-    # memoryless implied: Poisson-binomial with p_err = 1 - max(p, 1-p).
-    # Implied TOTAL variance of N_w = E[within-window var] + Var[within-window mean].
-    perr = 1 - np.maximum(p_ml, 1 - p_ml)
-    win_var_ml = np.array([(perr[i*w:(i+1)*w] * (1 - perr[i*w:(i+1)*w])).sum() for i in range(nwin)])
-    win_mean_ml = np.array([perr[i*w:(i+1)*w].sum() for i in range(nwin)])
-    var_impl_ml_total = win_var_ml.mean() + win_mean_ml.var()
-    pit_ml = np.empty(nwin)
+def implied_independent(p_err, real, w, rng):
+    nwin = len(real)
+    wv = np.array([(p_err[i*w:(i+1)*w] * (1 - p_err[i*w:(i+1)*w])).sum() for i in range(nwin)])
+    wm = np.array([p_err[i*w:(i+1)*w].sum() for i in range(nwin)])
+    var_total = wv.mean() + wm.var()
+    pit = np.empty(nwin)
     for i in range(nwin):
-        cdf = poisson_binomial_cdf(perr[i*w:(i+1)*w])
-        n = real_ml[i]
-        lo = cdf[n-1] if n > 0 else 0.0
-        pit_ml[i] = lo + rng.random() * (cdf[n] - lo)          # randomised PIT
+        cdf = poisson_binomial_cdf(p_err[i*w:(i+1)*w]); n = real[i]
+        lo = cdf[n-1] if n > 0 else 0.0; pit[i] = lo + rng.random() * (cdf[n] - lo)
+    return var_total, pit
 
-    # BSF-S1 implied: FFBS regime paths, then errors from per-regime heads
-    samples = np.empty((R, nwin))
+
+def implied_ffbs(bel, A, H, dec, real, w, rng, R=100):
+    T = len(dec); nwin = len(real); samples = np.empty((R, nwin))
     for r in range(R):
-        sp = ffbs(bel, bs.A, rng)
-        p_err_path = 1 - np.where(dec_bs == 1, H[np.arange(T_test), sp], 1 - H[np.arange(T_test), sp])
-        e = (rng.random(T_test) < p_err_path).astype(int)
+        sp = ffbs(bel, A, rng)
+        pe = 1 - np.where(dec == 1, H[np.arange(T), sp], 1 - H[np.arange(T), sp])
+        e = (rng.random(T) < pe).astype(int)
         samples[r] = [e[i*w:(i+1)*w].sum() for i in range(nwin)]
-    var_impl_bs_total = samples.var()                       # pooled over samples and windows
-    pit_bs = np.array([(np.sum(samples[:, i] < real_bs[i]) + rng.random() * np.sum(samples[:, i] == real_bs[i])) / R
-                       for i in range(nwin)])
+    pit = np.array([(np.sum(samples[:, i] < real[i]) + rng.random() * np.sum(samples[:, i] == real[i])) / R for i in range(nwin)])
+    return samples.var(), pit
 
-    # ---- direct test of eq. (3.4)/(3.5): Cov(E_t, E_{t+k}) = lambda^k Var_pi(e)
-    lam = 1 - a - b
-    pi_emp = np.array([1 - s2.mean(), s2.mean()])
-    e_s = np.array([err_ml[s2 == 0].mean(), err_ml[s2 == 1].mean()])
-    ebar = pi_emp @ e_s; var_pi_e = pi_emp @ e_s**2 - ebar**2
-    ks = np.arange(1, 21)
-    cov_emp = np.array([np.mean((err_ml[:-k] - ebar) * (err_ml[k:] - ebar)) for k in ks])
-    cov_thy = lam**ks * var_pi_e
-    k_ = np.arange(1, w)
-    phi_w_theory = 1 + 2 * var_pi_e * np.sum((w - k_) * lam**k_) / (w * ebar * (1 - ebar))
-    phi_inf_theory = 1 + 2 * lam / (1 - lam) * var_pi_e / (ebar * (1 - ebar))
-    return {
-        "regime_error_rates_memoryless": e_s.tolist(),
-        "covariance_test": {"k": ks.tolist(), "empirical": cov_emp.tolist(), "theory_lambda_k_VarPi": cov_thy.tolist(),
-                            "relative_l2_error": float(np.linalg.norm(cov_emp - cov_thy) / np.linalg.norm(cov_thy))},
-        "phi_theory_window_w": float(phi_w_theory), "phi_theory_asymptotic": float(phi_inf_theory),
-        "hop_level": hop,
-        "memoryless": {"phi_hat": float(real_ml.var() / var_impl_ml_total),
-                       "phi_hat_vs_binomial": float(real_ml.var() / (w * ebar * (1 - ebar))),
-                       "pit_l1": pit_l1(pit_ml), "ks_pvalue": float(kstest(pit_ml, "uniform").pvalue),
-                       "mean_errors_per_window": float(real_ml.mean())},
-        "bsf_s1": {"phi_hat": float(real_bs.var() / var_impl_bs_total),
-                   "pit_l1": pit_l1(pit_bs), "ks_pvalue": float(kstest(pit_bs, "uniform").pvalue),
-                   "mean_errors_per_window": float(real_bs.mean())},
-        "window": w, "n_windows": int(nwin),
-    }
+
+def phi_ci(real, var_impl, rng, B=1000):
+    n = len(real); boots = np.array([real[rng.integers(0, n, n)].var() / var_impl for _ in range(B)])
+    return [float(np.percentile(boots, 2.5)), float(np.percentile(boots, 97.5))]
+
+
+def tce(real, var_impl, pit, rng):
+    phi = float(real.var() / var_impl); ci = phi_ci(real, var_impl, rng)
+    return {"phi_hat": phi, "phi_ci95": ci, "ks_pvalue": float(kstest(pit, "uniform").pvalue), "pass": bool(ci[0] <= 1 <= ci[1])}
+
+
+def run(seed=0, seeds=(0, 1, 2, 3, 4), T_train=30000, T_test=25000, w=50, R=100):
+    a, b = 0.01, 0.04; lam = 1 - a - b
+    out = {"seeds": list(seeds), "window": w, "per_seed": []}
+    for sd in seeds:
+        rng = np.random.default_rng(sd)
+        o, d, s, A, pi = regime_stream(T_train, a, b, rng)
+        o2, d2, s2, _, _ = regime_stream(T_test, a, b, rng)
+        nwin = T_test // w; T = nwin * w; o2, d2, s2 = o2[:T], d2[:T], s2[:T]
+        ml = MemorylessHead().fit(o, d); bs = BSFS1().fit(o, d, s); ex = ExactFilter(A, pi); om = OracleMemoryless(pi)
+        res = {"seed": sd}
+        # memoryless-type heads: implied joint = independence
+        for name, p in (("memoryless", ml.predict(o2)), ("oracle_memoryless", om.predict(o2))):
+            dec = (p >= .5).astype(int); err = (dec != d2).astype(int)
+            real = np.array([err[i*w:(i+1)*w].sum() for i in range(nwin)])
+            v, pit = implied_independent(1 - np.maximum(p, 1 - p), real, w, rng)
+            res[name] = tce(real, v, pit, rng)
+            if name == "memoryless":
+                # Lemma 1(iv): hop-ECE on stream and shuffle; (3.5) vs binomial; lag-cov (3.4)
+                perm = rng.permutation(T)
+                res["hop_ece"] = {"stream": ece(p, d2), "shuffled": ece(p[perm], d2[perm])}
+                pi_emp = np.array([1 - s2.mean(), s2.mean()]); e_s = np.array([err[s2 == 0].mean(), err[s2 == 1].mean()])
+                ebar = pi_emp @ e_s; vpe = pi_emp @ e_s ** 2 - ebar ** 2; k_ = np.arange(1, w)
+                res["binomial_ratio"] = {"realised": float(real.var() / (w * ebar * (1 - ebar))),
+                                         "theory_eq35": float(1 + 2 * vpe * np.sum((w - k_) * lam ** k_) / (w * ebar * (1 - ebar))),
+                                         "regime_error_rates": e_s.tolist()}
+                ks = np.arange(1, 21)
+                ce = np.array([np.mean((err[:-k] - ebar) * (err[k:] - ebar)) for k in ks]); ct = lam ** ks * vpe
+                res["lagcov_rel_l2_error"] = float(np.linalg.norm(ce - ct) / np.linalg.norm(ct))
+                # control: shuffled stream, no clustering by construction
+                ps, ds = p[perm], d2[perm]; decs = (ps >= .5).astype(int); errs = (decs != ds).astype(int)
+                reals = np.array([errs[i*w:(i+1)*w].sum() for i in range(nwin)])
+                vs, pits = implied_independent(1 - np.maximum(ps, 1 - ps), reals, w, rng)
+                res["memoryless_shuffled_control"] = tce(reals, vs, pits, rng)
+        # filter models: implied joint = FFBS
+        for name, mdl in (("bsf_s1_oracle_labels", bs), ("exact_filter", ex)):
+            p, bel, H = mdl.predict(o2); dec = (p >= .5).astype(int); err = (dec != d2).astype(int)
+            real = np.array([err[i*w:(i+1)*w].sum() for i in range(nwin)])
+            v, pit = implied_ffbs(bel, mdl.A, H, dec, real, w, rng, R=R)
+            res[name] = tce(real, v, pit, rng)
+        out["per_seed"].append(res)
+    names = ["memoryless", "oracle_memoryless", "bsf_s1_oracle_labels", "exact_filter", "memoryless_shuffled_control"]
+    out["summary"] = {n: {"phi_mean": float(np.mean([r[n]["phi_hat"] for r in out["per_seed"]])),
+                          "phi_min": float(np.min([r[n]["phi_hat"] for r in out["per_seed"]])),
+                          "phi_max": float(np.max([r[n]["phi_hat"] for r in out["per_seed"]])),
+                          "passes": int(sum(r[n]["pass"] for r in out["per_seed"])),
+                          "ks_reject_at_0.01": int(sum(r[n]["ks_pvalue"] < 0.01 for r in out["per_seed"]))} for n in names}
+    out["summary"]["hop_ece_identical_all_seeds"] = bool(all(abs(r["hop_ece"]["stream"] - r["hop_ece"]["shuffled"]) < 1e-12 for r in out["per_seed"]))
+    out["summary"]["binomial_ratio"] = {"realised_mean": float(np.mean([r["binomial_ratio"]["realised"] for r in out["per_seed"]])),
+                                        "theory_mean": float(np.mean([r["binomial_ratio"]["theory_eq35"] for r in out["per_seed"]]))}
+    out["summary"]["lagcov_rel_l2_error_mean"] = float(np.mean([r["lagcov_rel_l2_error"] for r in out["per_seed"]]))
+    return out
 
 
 if __name__ == "__main__":
-    import json; print(json.dumps(run(), indent=2))
+    import json; print(json.dumps(run()["summary"], indent=1))

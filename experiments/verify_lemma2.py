@@ -59,7 +59,7 @@ for eps in eps_grid:
         print(f"{eps:>6} {noise:>11} | {np.mean(a1 != a0):>10.4f} {tv_c:>9.4f} | "
               f"{np.mean(np.abs(u1 - u0)):>12.5f} {np.mean(f1 != f0):>10.4f} {tv_f:>9.4f}")
 print("\nLipschitz bound on the fuzzy signal per unit eps: L_D*H*L with L=1/4 (sigmoid), H=3, L_D from the centroid;")
-print("crisp flip mass ~ sum_h 2 p_h(0) eps = 3*0.798*eps for adversarial along the nearest gate.")
+print("crisp flip mass ~ sum_h 2 p_h(0) rho_h eps, rho_h = P(other gates pass | gate h at threshold) ~ 1/4 here (Lemma 2(ii)); the single-gate limit 0.798*eps applies to E3, not to this 3-gate conjunction.")
 # cascade: after a crisp gate flips, a downstream gate that consumes it sees an O(1) change
 v = 1.5; Z = X @ W.T; g1 = (Z[:, 0] >= 0).astype(float)
 z2 = Z[:, 1] + v * g1; z2p = Z[:, 1] + v * (1 - g1)

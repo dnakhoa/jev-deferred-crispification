@@ -2,7 +2,7 @@
 
 **A position paper on TypeSafe AI's Jev and the "System One" class of decision models — and the two mathematical primitives they leave out.**
 
-> **Anh Khoa Doan Ngoc** · Preprint v1.1 · 17 September 2026 · **[Download the PDF](paper.pdf)** · [LaTeX source](paper.tex) · CC BY 4.0
+> **Anh Khoa Doan Ngoc** · Preprint v1.2 · 17 September 2026 · **[Download the PDF](paper.pdf)** · [LaTeX source](paper.tex) · CC BY 4.0
 >
 > [![DOI](https://img.shields.io/badge/DOI-pending%20Zenodo%20release-lightgrey)](#citation)
 
@@ -56,23 +56,27 @@ python3 experiments/run_all.py           # E1–E5 -> results/RESULTS.md and res
 
 Only NumPy and SciPy are required. On Google Colab: `!git clone https://github.com/dnakhoa/jev-deferred-crispification && cd jev-deferred-crispification && python3 experiments/run_all.py`.
 
-### Headline results (seed 0, full tables in [results/RESULTS.md](results/RESULTS.md))
+### Headline results (five seeds, mean; full tables with ranges in [results/RESULTS.md](results/RESULTS.md))
 
-| Experiment | Memoryless typed head | BSF-S1 |
-|---|---|---|
-| E1 ECE inside the rare regime / after shift | 0.156 / 0.109 | 0.018 / 0.010 |
-| E2 TCE: KS p-value of window-error PIT | 3×10⁻³⁶ (fail) | 0.04 (pass) |
-| E2 dispersion vs binomial baseline | 1.88 (theory 1.94) | — |
-| E3 flip mass under ε-perturbation | Θ(ε), jumps of 1, cascade P=0.48 | 0 flips; signal change ≤ 0.21·ε |
-| E4 answer-flip rate when a predicate is asked twice | 6.8% (product / naive Bayes) | 0% (min t-norm) |
-| E5 CRPS on a diffuse borderline population | 0.25 (point) | 0.17 (type-2 Q) |
+| Experiment | Memoryless typed head | Bayes-optimal memoryless head | BSF-S1 (learned) | Exact filter (floor) |
+|---|---|---|---|---|
+| E1 ECE inside the rare regime | 0.156 | **0.193** (more capacity, deeper hole) | 0.061 | 0.066 |
+| E1 ECE after regime shift (stale A) | 0.114 | 0.146 | 0.021 | 0.011 |
+| E2 TCE passes (dispersion CI ∋ 1), of 5 seeds | 0 | 0 | 2 | 5 |
+| E2 dispersion vs binomial baseline | 1.83 (eq. 3.5 predicts 1.86) | — | — | — |
+| E3 flip mass, fair comparison (matched base rate, own adversary) | 1.0× (crisp conjunction) | — | 0.7× (single collapse; a thresholded mean gets the same) | — |
+| E3 cascade P(gate 2 flips \| gate 1 flipped), any ε | 0.03–0.52 depending on coupling weight (Θ(1)) | — | O(ε) | — |
+| E3 all-hops-flip slope vs ε (coincident / spread / independent) | 1.00 / 3.05 / 2.99 (theory 1 / 3 / 3) | | | |
+| E5 CRPS on a diffuse borderline population | 0.25 (point output) | — | 0.17 (type-2 Q) | — |
+
+What the adversarial review changed: the earlier "25–60×" E3 headline was an artefact of mismatched base rates and a one-sided adversary and is withdrawn; the honest single-collapse effect is 0.7×, and the t-norm-specific content is the cascade and coincident-threshold results. Online recalibration fixes the shifted-marginal row but not the within-regime row; a history-window head halves the gap. The learned BSF-S1 fails the trajectory test on 3 of 5 seeds where Baum–Welch misestimates the transition rates, which is exactly the filter-misspecification failure mode the paper names.
 
 ## Status
 
 - ✅ Full paper (LaTeX) — [paper.pdf](paper.pdf)
 - ✅ Lemmas 1–2 stated and proved (Appendix B); both numerically verified (`verify_lemma1.py`, `verify_lemma2.py`)
 - ✅ BSF-S1 output object, composition algebras, and pseudocode complete
-- ✅ Experiments E1–E5 run; TCE and AMS operationally defined (§7.1)
+- ✅ Experiments E1–E5 run over five seeds with the exact filter as floor; TCE and AMS operationally defined (§7.1); three review rounds applied
 - ✅ All Jev claims quoted from TypeSafe's launch post and documentation; all academic citations verified
 - 🔲 Ablations (EMA-smoothed head, hand-crafted HMM, BSF-S1 with A=I / thresholded μ / collapsed Q) — contributions welcome
 
