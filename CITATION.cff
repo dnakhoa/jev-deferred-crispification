@@ -2,12 +2,12 @@ cff-version: 1.2.0
 message: "If you use this work, please cite it as below."
 title: "Calibration Does Not Compose, Types Destroy Vagueness: The Hidden-Markov and Fuzzy Primitives Missing from System-One Decision Models"
 authors:
-  - family-names: Doan
-    given-names: Khoa
+  - family-names: Doan Ngoc
+    given-names: Anh Khoa
 type: article
 status: preprint
 date-released: 2026-09-17
-version: "1.0"
+version: "1.1"
 repository-code: "https://github.com/dnakhoa/jev-deferred-crispification"
 keywords:
   - Jev
