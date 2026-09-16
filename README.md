@@ -86,7 +86,7 @@ Jev is closed. Every claim about it is drawn from public material and applies to
 
 ## Citation
 
-See [CITATION.cff](CITATION.cff). Archived on Zenodo: version DOI [10.5281/zenodo.22801506](https://doi.org/10.5281/zenodo.22801506), concept DOI [10.5281/zenodo.22801505](https://doi.org/10.5281/zenodo.22801505).
+See [CITATION.cff](CITATION.cff). Archived on Zenodo: version DOI [10.5281/zenodo.22801506](https://doi.org/10.5281/zenodo.22801506), concept DOI [10.5281/zenodo.22801505](https://doi.org/10.5281/zenodo.22801505). Also on [ResearchGate](https://www.researchgate.net/publication/414384305).
 
 **AI-usage statement.** Claude Fable 5.1 assisted with prose expansion, experiment code and typesetting under the author's direction. All claims, proofs, experimental design and responsibility are the author's. No AI system is an author.
 
