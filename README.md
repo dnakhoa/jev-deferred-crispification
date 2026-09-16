@@ -2,7 +2,7 @@
 
 **A position paper on TypeSafe AI's Jev and the "System One" class of decision models — and the two mathematical primitives they leave out.**
 
-> Preprint v0.3 · 17 Sept 2026 · [Read the paper](paper.md) · CC BY 4.0
+> Preprint v1.0 · 17 Sept 2026 · **[Download the PDF](paper.pdf)** · [LaTeX source](paper.tex) · [Markdown draft](paper.md) · CC BY 4.0
 
 ---
 
@@ -35,7 +35,7 @@ O(x) = ( μ ∈ [0,1]^{K×M},   Q[μ],   Δb ∈ Δ^K )
 - `μ` is emitted **per regime** and mixed only at the actuator — mixing over regimes is itself a collapse.
 - `Q` is a calibrated distribution *over the degree* (type-2), audited by proper scoring rules, kept separate from the degree itself.
 
-Full pseudocode for the filter step, the single-collapse actuator, and training is in [§6.6](paper.md#66-algorithm-boxes).
+Full pseudocode for the filter step, the single-collapse actuator, and training is in §6.5 of the [PDF](paper.pdf).
 
 ## Why this matters if you are building on Jev today
 
@@ -63,11 +63,11 @@ Simulated variance matches equation (3.5) to three decimals; the all-correct pro
 
 ## Status
 
+- ✅ Full paper (15 pp., LaTeX) — [paper.pdf](paper.pdf)
 - ✅ Lemmas 1–2 stated and proved (Appendix B); closed forms numerically verified
 - ✅ BSF-S1 output object, composition algebras, and pseudocode complete
 - ✅ All Jev claims quoted from primary sources (TypeSafe launch post, docs, The Register); all academic citations verified
-- 🔲 Prose expansion of §1, §5.5, §9
-- 🔲 Experiments E1–E5 (generators specified in Appendix D)
+- 🔲 Experiments E1–E5 (generators specified in Appendix D) — contributions welcome
 
 ## Scope and honesty
 

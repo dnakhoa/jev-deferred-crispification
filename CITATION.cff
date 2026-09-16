@@ -7,7 +7,7 @@ authors:
 type: article
 status: preprint
 date-released: 2026-09-17
-version: "0.3"
+version: "1.0"
 repository-code: "https://github.com/dnakhoa/jev-deferred-crispification"
 keywords:
   - Jev
