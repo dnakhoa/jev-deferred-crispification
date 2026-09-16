@@ -2,3 +2,8 @@ technical-supplement.md
 __pycache__/
 *.pyc
 .DS_Store
+build/
+*.aux
+*.log
+*.out
+*.toc
