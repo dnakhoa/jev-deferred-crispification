@@ -4,7 +4,7 @@
 
 > **Anh Khoa Doan Ngoc** · Preprint v1.2 · 17 September 2026 · **[Download the PDF](paper.pdf)** · [LaTeX source](paper.tex) · CC BY 4.0
 >
-> [![DOI](https://img.shields.io/badge/DOI-pending%20Zenodo%20release-lightgrey)](#citation)
+> [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22801506.svg)](https://doi.org/10.5281/zenodo.22801506)
 
 ---
 
@@ -86,7 +86,7 @@ Jev is closed. Every claim about it is drawn from public material and applies to
 
 ## Citation
 
-See [CITATION.cff](CITATION.cff). A Zenodo DOI will be minted from the next GitHub release; until then cite the repository URL and version tag. ResearchGate mirror to follow.
+See [CITATION.cff](CITATION.cff). Archived on Zenodo: version DOI [10.5281/zenodo.22801506](https://doi.org/10.5281/zenodo.22801506), concept DOI [10.5281/zenodo.22801505](https://doi.org/10.5281/zenodo.22801505).
 
 **AI-usage statement.** Claude Fable 5.1 assisted with prose expansion, experiment code and typesetting under the author's direction. All claims, proofs, experimental design and responsibility are the author's. No AI system is an author.
 
