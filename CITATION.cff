@@ -9,6 +9,7 @@ status: preprint
 date-released: 2026-09-17
 version: "1.2"
 repository-code: "https://github.com/dnakhoa/jev-deferred-crispification"
+doi: 10.5281/zenodo.22801506
 keywords:
   - Jev
   - TypeSafe AI
