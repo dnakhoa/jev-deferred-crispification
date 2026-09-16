@@ -1,0 +1,20 @@
+TITLE
+Calibration Does Not Compose, Types Destroy Vagueness: The Hidden-Markov and Fuzzy Primitives Missing from System-One Decision Models
+
+AUTHOR
+Anh Khoa Doan Ngoc (khoa.doan@edge8.ai)
+
+VERSION / DATE
+v1.2, 17 September 2026
+
+LICENSE
+CC BY 4.0 (paper); MIT (code)
+
+KEYWORDS
+Jev; TypeSafe AI; System One models; RLCD; calibration; expected calibration error; hidden Markov models; Bayesian filtering; fuzzy logic; type-2 fuzzy sets; t-norms; deferred crispification; decision pipelines; machine-to-machine AI
+
+RELATED IDENTIFIER
+https://github.com/dnakhoa/jev-deferred-crispification (isSupplementTo)
+
+ABSTRACT
+System-one decision models — fast, non-generative networks that emit typed, calibrated probabilistic decisions for machine-to-machine pipelines, of which TypeSafe AI's Jev, trained by Reinforcement Learning for Calibrated Decisions (RLCD), is the announced instance — are audited by hop-level calibration on stationary held-out data. We show that this class omits two structural primitives: recursive belief over a latent state (the hidden-Markov primitive) and graded predicate membership (the fuzzy primitive). We prove two negative results. Lemma 1: when outcomes are coupled through a latent Markov regime, marginal calibration is not preserved under regime shift, trajectory error counts are overdispersed relative to the binomial baseline that hop-level calibration implies, with a closed-form inflation factor, and every permutation-invariant audit statistic — expected calibration error included — has exactly zero power to detect this. Lemma 2: thresholding a typed score makes the composed pipeline action discontinuous; an ε-perturbation of evidence flips a full action on a set of measure Θ(ε), every downstream hop then receives an O(1) input change so the conditional flip probability is Θ(1), and when several hops threshold the same coupled quantity the all-hops-flip event has measure Θ(ε) rather than Θ(ε^H); a fuzzy membership composed by a t-norm and defuzzified once by a Lipschitz map keeps the action Lipschitz in the evidence. We state the Principle of Deferred Crispification and specify a reference architecture, Belief-State Fuzzy System-One (BSF-S1), whose output object carries a per-regime membership matrix, a calibrated distribution over the degree, and a scaled-likelihood vector over regimes, and collapses exactly once at the actuator at O(K^2+KM) cost per step. Five CPU-scale experiments are consistent with each prediction, and two operationally defined audit metrics (trajectory calibration error and action-mass sensitivity) can be run against a closed model from the outside. The paper is architectural: Jev is closed, and nothing here is an empirical claim about its internals.

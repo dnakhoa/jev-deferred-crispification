@@ -1,48 +1,59 @@
-"""E1 — Regime-shift stress (Lemma 1(i)).
+"""E1 — Regime-shift stress (Lemma 1(i)), round-2 version.
 
-Train a memoryless head on a stationary stream. Evaluate ECE on:
-  (a) a fresh stationary stream (same pi)      -> both models ~0
-  (b) windows conditioned on the true regime   -> memoryless miscalibrated
-  (c) a shifted stream with pi' != pi          -> memoryless miscalibrated
-BSF-S1 should be ~calibrated in all three.
+Five seeds, mean ± range. Rows:
+  memoryless (quad logistic)          the system-one baseline
+  oracle memoryless (Bayes-optimal)   infinite-capacity memoryless head: removes the capacity objection
+  windowed head, L=10                 memoryless head fed a history window (State-object trick)
+  memoryless + online Platt           sliding-window recalibration from realised outcomes
+  BSF-S1 (oracle regime labels)       learned filter, labels for g and A-init
+  BSF-S1 (unsupervised regimes)       labels replaced by a Gaussian-HMM EM on o alone
+  exact filter (true A, g, h)         the achievable floor for every metric
+Columns: ECE stationary / regime 1 / shifted; NLL and accuracy on the stationary stream; accuracy shifted.
+Regime-conditional ECE conditions on the true regime, which is outside the filter's
+sigma-field, so even the exact filter has a nonzero floor; read rows against that floor.
 """
 import numpy as np
-from common import regime_stream, MemorylessHead, BSFS1, ece
+from common import *
 
 
-def regime_conditional_ece(p, d, s):
-    """ECE restricted to the time steps spent in each regime: the calibration a
-    consumer experiences *during a sojourn*, which the stationary audit averages away."""
-    return {k: ece(p[s == k], d[s == k]) for k in (0, 1)}
-
-
-def run(seed=0, T_train=30000, T_test=30000):
-    rng = np.random.default_rng(seed)
-    a, b = 0.01, 0.04                              # pi = (0.8, 0.2), lambda = 0.95
-    o, d, s, A, pi = regime_stream(T_train, a, b, rng)
-    ml = MemorylessHead().fit(o, d)
-    bs = BSFS1().fit(o, d, s)
-
-    res = {"A_true": A.tolist(), "A_hat": bs.A.tolist()}
-    # (a) stationary
-    o2, d2, s2, _, _ = regime_stream(T_test, a, b, rng)
-    res["stationary"] = {"memoryless": ece(ml.predict(o2), d2),
-                         "bsf_s1": ece(bs.predict(o2)[0], d2)}
-    # (b) regime-conditional on the same stationary stream
-    res["window_conditional"] = {"memoryless": regime_conditional_ece(ml.predict(o2), d2, s2),
-                                 "bsf_s1": regime_conditional_ece(bs.predict(o2)[0], d2, s2)}
-    # (c) shifted marginal: the rare regime becomes dominant, pi' = (0.2, 0.8).
-    #     The transition matrix has changed too, so BSF-S1 runs with a STALE A
-    #     (the failure mode of Section 6.7); the filter must track from evidence alone.
-    o3, d3, s3, _, pi3 = regime_stream(T_test, 0.04, 0.01, rng)
-    res["shifted"] = {"pi_prime": pi3.tolist(),
-                      "memoryless": ece(ml.predict(o3), d3),
-                      "bsf_s1": ece(bs.predict(o3)[0], d3)}
-    # accuracy for context
-    res["accuracy_shifted"] = {"memoryless": float(((ml.predict(o3) >= .5) == d3).mean()),
-                               "bsf_s1": float(((bs.predict(o3)[0] >= .5) == d3).mean())}
-    return res
+def run(seed=0, seeds=(0, 1, 2, 3, 4), T_train=30000, T_test=30000):
+    a, b = 0.01, 0.04
+    rows = {}
+    for sd in seeds:
+        rng = np.random.default_rng(sd)
+        o, d, s, A, pi = regime_stream(T_train, a, b, rng)
+        o2, d2, s2, _, _ = regime_stream(T_test, a, b, rng)
+        o3, d3, s3, A3, pi3 = regime_stream(T_test, 0.04, 0.01, rng)
+        ml = MemorylessHead().fit(o, d)
+        bs = BSFS1().fit(o, d, s)
+        g, Ah, _ = ghmm_em(o, seed=sd); sh = g.argmax(1)
+        if (sh == s).mean() < .5: sh = 1 - sh; Ah = Ah[::-1, ::-1]
+        bsu = BSFS1().fit(o, d, sh, A_init=Ah)
+        models = {
+            "memoryless": (ml.predict(o2), ml.predict(o3)),
+            "oracle_memoryless": (OracleMemoryless(pi).predict(o2), OracleMemoryless(pi).predict(o3)),
+            "windowed_L10": (lambda m: (m.predict(o2), m.predict(o3)))(WindowedHead(10).fit(o, d)),
+            "memoryless_online_platt": (online_platt(ml.predict(o2), d2), online_platt(ml.predict(o3), d3)),
+            "bsf_s1_oracle_labels": (bs.predict(o2)[0], bs.predict(o3)[0]),
+            "bsf_s1_unsupervised": (bsu.predict(o2)[0], bsu.predict(o3)[0]),
+            "exact_filter": (ExactFilter(A, pi).predict(o2)[0], ExactFilter(A, pi).predict(o3)[0]),
+        }
+        for k, (p2, p3) in models.items():
+            rows.setdefault(k, []).append({
+                "ece_stationary": ece(p2, d2), "ece_regime1": ece(p2[s2 == 1], d2[s2 == 1]),
+                "ece_shifted": ece(p3, d3), "nll_stationary": nll(p2, d2),
+                "acc_stationary": float(((p2 >= .5) == d2).mean()), "acc_shifted": float(((p3 >= .5) == d3).mean())})
+        rows.setdefault("_meta", []).append({"seed": sd, "A_hat_oracle_labels": bs.A.tolist(), "A_hat_unsup": bsu.A.tolist(),
+                                             "unsup_label_agreement": float((sh == s).mean())})
+    out = {"seeds": list(seeds), "per_seed": rows}
+    summ = {}
+    for k, lst in rows.items():
+        if k.startswith("_"): continue
+        summ[k] = {m: {"mean": float(np.mean([r[m] for r in lst])), "min": float(np.min([r[m] for r in lst])),
+                       "max": float(np.max([r[m] for r in lst]))} for m in lst[0]}
+    out["summary"] = summ
+    return out
 
 
 if __name__ == "__main__":
-    import json; print(json.dumps(run(), indent=2))
+    import json; print(json.dumps(run()["summary"], indent=1))

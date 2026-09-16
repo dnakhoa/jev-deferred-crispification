@@ -237,3 +237,106 @@ class BSFS1:
         H = np.column_stack([expit(X @ w / T) for w, T in zip(self.wh, self.Th)])
         b, _, _ = self.filter(o)
         return (H * b).sum(axis=1), b, H
+
+
+# --------------------------------------------------------------------------- #
+# Reference models added after the adversarial review (round 2)
+# --------------------------------------------------------------------------- #
+
+MEANS = np.array([[0.0, 0.0], [0.5, 0.5]])   # emission means used by regime_stream
+GAIN = 3.0
+
+
+def true_posterior_s(o, prior):
+    """Exact P(s | o) under Gaussian emissions with unit covariance."""
+    ll = np.stack([-0.5 * ((o - MEANS[k]) ** 2).sum(1) + np.log(prior[k]) for k in (0, 1)], 1)
+    return np.exp(ll - logsumexp(ll, 1, keepdims=True))
+
+
+def true_heads(o):
+    """Exact P(d=1 | o, s) for s = 0, 1."""
+    return np.column_stack([expit(GAIN * o[:, 0]), expit(GAIN * o[:, 1])])
+
+
+class OracleMemoryless:
+    """Bayes-optimal memoryless head P_train(d | o): infinite capacity, no state.
+    Removes the head-capacity objection: if the temporal hole is real, this
+    head must show it too."""
+
+    def __init__(self, prior): self.prior = prior
+
+    def predict(self, o):
+        ps = true_posterior_s(o, self.prior); H = true_heads(o)
+        return (ps * H).sum(1)
+
+
+class ExactFilter:
+    """The exact forward filter with the TRUE (A, g, h): the achievable floor
+    for every metric. Lemma 1's claims are about this object."""
+
+    def __init__(self, A, prior): self.A, self.pi = A, prior
+
+    def predict(self, o):
+        L = scaled_likelihood(true_posterior_s(o, self.pi), self.pi)
+        b, _, _ = forward_filter(L, self.A, self.pi)
+        H = true_heads(o)
+        return (b * H).sum(1), b, H
+
+
+def hist_feats(o, L):
+    """Quadratic features of o_t plus the mean of the last L observations and
+    interactions: a memoryless head fed a history window (the 'State-object'
+    trick), still with no recursion."""
+    cs = np.cumsum(np.vstack([np.zeros((1, 2)), o]), 0)
+    idx = np.arange(len(o)); lo = np.maximum(idx - L + 1, 0)
+    m = (cs[idx + 1] - cs[lo]) / (idx + 1 - lo)[:, None]
+    q = quad_features(o)
+    return np.column_stack([q, m, m ** 2, o[:, 0] * m[:, 0], o[:, 0] * m[:, 1], o[:, 1] * m[:, 0], o[:, 1] * m[:, 1]])
+
+
+class WindowedHead:
+    def __init__(self, L=10): self.L = L
+
+    def fit(self, o, d, cal_frac=0.3):
+        n = int(len(d) * (1 - cal_frac)); X = hist_feats(o, self.L)
+        self.w = fit_logistic(X[:n], d[:n]); self.T = fit_temperature(X[n:] @ self.w, d[n:]); return self
+
+    def predict(self, o): return expit(hist_feats(o, self.L) @ self.w / self.T)
+
+
+def online_platt(p, y, W=500, every=25):
+    """Sliding-window Platt recalibration of a score using realised outcomes
+    (1-step delay). Refit every `every` steps for speed."""
+    z = logit(p); out = p.copy(); w = np.array([0.0, 1.0])
+    for t in range(W, len(p)):
+        if (t - W) % every == 0:
+            w = fit_logistic(np.column_stack([np.ones(W), z[t - W:t]]), y[t - W:t], l2=1e-4)
+        out[t] = expit(w[0] + w[1] * z[t])
+    return out
+
+
+def ghmm_em(o, iters=60, seed=0):
+    """Unsupervised regimes: K=2 diagonal-Gaussian HMM fitted by EM on o alone.
+    Returns posteriors gamma (T,2), A_hat, means."""
+    r = np.random.default_rng(seed); T = len(o)
+    mu = np.array([[-.2, -.2], [.7, .7]]) + 0.1 * r.standard_normal((2, 2)); var = np.ones((2, 2))
+    Ah = np.array([[.95, .05], [.05, .95]]); p0 = np.array([.5, .5])
+    for _ in range(iters):
+        logB = np.stack([-0.5 * (((o - mu[k]) ** 2) / var[k]).sum(1) - 0.5 * np.log(var[k]).sum() for k in (0, 1)], 1)
+        B = np.exp(logB - logB.max(1, keepdims=True))
+        al = np.empty((T, 2)); c = np.empty(T); al[0] = p0 * B[0]; c[0] = al[0].sum(); al[0] /= c[0]
+        for t in range(1, T): al[t] = (Ah.T @ al[t - 1]) * B[t]; c[t] = al[t].sum(); al[t] /= c[t]
+        be = np.empty((T, 2)); be[-1] = 1
+        for t in range(T - 2, -1, -1): be[t] = Ah @ (B[t + 1] * be[t + 1]) / c[t + 1]
+        g = al * be; g /= g.sum(1, keepdims=True)
+        xi = np.zeros((2, 2))
+        for t in range(T - 1): xi += np.outer(al[t], B[t + 1] * be[t + 1]) * Ah / c[t + 1]
+        Ah = xi / xi.sum(1, keepdims=True); p0 = g[0]
+        for k in (0, 1):
+            w = g[:, k]; mu[k] = (w[:, None] * o).sum(0) / w.sum(); var[k] = (w[:, None] * (o - mu[k]) ** 2).sum(0) / w.sum()
+    return g, Ah, mu
+
+
+def nll(p, y):
+    p = np.clip(p, 1e-9, 1 - 1e-9)
+    return float(-np.mean(y * np.log(p) + (1 - y) * np.log(1 - p)))
