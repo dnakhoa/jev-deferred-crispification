@@ -2,14 +2,14 @@
 
 **Your decision pipeline is calibrated per hop and blind per trajectory. This repo contains the math that proves it, the architecture that fixes it, and two audit metrics you can run today — no model weights required.**
 
-[![preprint v1.2](https://img.shields.io/badge/preprint-v1.2-b31b1b.svg)](paper.pdf)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22801506.svg)](https://doi.org/10.5281/zenodo.22801506)
+[![preprint v1.3](https://img.shields.io/badge/preprint-v1.3-b31b1b.svg)](paper.pdf)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22801505.svg)](https://doi.org/10.5281/zenodo.22801505)
 [![ResearchGate](https://img.shields.io/badge/ResearchGate-publication-00CCBB.svg)](https://www.researchgate.net/publication/414384305)
 [![license](https://img.shields.io/badge/license-CC--BY--4.0-blue.svg)](LICENSE)
-[![reproduce](https://img.shields.io/badge/reproduce-CPU%20%C2%B7%20~2%20min-brightgreen.svg)](#reproduce-everything)
+[![reproduce](https://img.shields.io/badge/reproduce-CPU%20%C2%B7%20~15%20min-brightgreen.svg)](#reproduce-everything)
 [![integrity](https://img.shields.io/badge/integrity-headline%20withdrawn%20when%20wrong-orange.svg)](#integrity-changelog)
 
-> **30-second version.** TypeSafe AI's **Jev** (15 Sept 2026) launched the *System-One* class: no text, just typed probabilistic decisions (`Choice`, `Score`, `Noul`), calibrated via RLCD, at 70–500 ms and $0.042/1M tokens. Brilliant interface. Two missing primitives: **(1)** no Hidden-Markov belief over latent regimes, **(2)** no fuzzy membership for borderline predicates. We prove what breaks when you compose such heads in a pipeline (**Lemma 1**: calibration does not compose; **Lemma 2**: cliff cascade), state one design law (**Deferred Crispification**), specify one reference architecture (**BSF-S1**), and ship two weight-free audit metrics (**TCE**, **AMS**). Everything reproduces on CPU in ~2 minutes.
+> **30-second version.** TypeSafe AI's **Jev** (15 Sept 2026) launched the *System-One* class: no text, just typed probabilistic decisions (`Choice`, `Score`, `Noul`), calibrated via RLCD, at 70–500 ms and $0.042/1M tokens. Brilliant interface. Two missing primitives: **(1)** no Hidden-Markov belief over latent regimes, **(2)** no fuzzy membership for borderline predicates. We prove what breaks when you compose such heads in a pipeline (**Lemma 1**: calibration does not compose; **Lemma 2**: cliff cascade), state one design law (**Deferred Crispification**), specify one reference architecture (**BSF-S1**), and ship two weight-free audit metrics (**TCE**, **AMS**). Everything reproduces on a laptop CPU in about fifteen minutes.
 
 ---
 
@@ -69,24 +69,42 @@ Reference implementations: [`experiments/e2_trajectory_calibration.py`](experime
 ```bash
 git clone https://github.com/dnakhoa/jev-deferred-crispification
 cd jev-deferred-crispification
-python3 experiments/run_all.py          # E1–E5 + lemma checks, CPU, ~2 min
+python3 experiments/run_all.py          # E1–E6 + lemma checks, CPU, ~15 min
+python3 experiments/make_figures.py     # figures/*.pdf from results/results.json
 ```
 
-| Script | What it shows | v1.2 protocol |
+| Script | What it shows | Protocol |
 |---|---|---|
 | [`verify_lemma1.py`](experiments/verify_lemma1.py) | variance inflation & P(all-correct) vs closed forms | e.g. `var: sim 20.304 / pred 20.314 / binomial 6.944`; `P(all-correct): 0.0071 vs 0.0001` |
-| [`verify_lemma2.py`](experiments/verify_lemma2.py) | discontinuity of typed+threshold vs Lipschitz fuzzy actuator | slope estimates at N=4e6 |
-| [`e1_regime_shift.py`](experiments/e1_regime_shift.py) | window-conditional calibration after regime shift | 5 seeds; exact-filter floor; Bayes-optimal memoryless head |
-| [`e2_trajectory_calibration.py`](experiments/e2_trajectory_calibration.py) | TCE separates pipelines that hop-ECE calls identical | 5 seeds; shuffled-stream control; online-Platt & history-window baselines |
-| [`e3_cliff_cascade.py`](experiments/e3_cliff_cascade.py) | action-mass flip under ε-perturbation; cascade vs coupling weight | matched base rates; own adversary; thresholded-mean comparison |
+| [`verify_lemma2.py`](experiments/verify_lemma2.py) | discontinuity of typed+threshold vs Lipschitz fuzzy actuator | adversarial and Gaussian noise, N=2e5 |
+| [`e1_regime_shift.py`](experiments/e1_regime_shift.py) | calibration inside the rare regime and after regime shift | 5 seeds; exact-filter floor; Bayes-optimal memoryless head; memory ablation (A = 1πᵀ) |
+| [`e2_trajectory_calibration.py`](experiments/e2_trajectory_calibration.py) | TCE separates pipelines that hop-ECE calls identical | 5 seeds; shuffled-stream control; unsupervised-regime filter; memory ablation |
+| [`e3_cliff_cascade.py`](experiments/e3_cliff_cascade.py) | action-mass flip under ε-perturbation; cascade vs coupling weight | matched base rates; own adversary; thresholded-mean comparison; coupling slopes at N=4e6 |
 | [`e4_composition_algebra.py`](experiments/e4_composition_algebra.py) | t-norm vs product vs naive-Bayes composition in rule bases | min t-norm identity checks |
 | [`e5_type2_separation.py`](experiments/e5_type2_separation.py) | degree vs degree-uncertainty conflation in single-number outputs | synthetic borderline populations |
+| [`e6_lambda_sweep.py`](experiments/e6_lambda_sweep.py) | eq. 3.5 across regime persistence λ; exact filter's own TCE at every λ | λ ∈ [0, 0.98], π fixed, 3 seeds |
+| [`make_figures.py`](experiments/make_figures.py) | the four data figures in the paper | colour-blind-safe, greyscale-legible |
 
-<!-- FILL: paste run_all.py summary table (mean±sd over 5 seeds) here -->
+### Headline results (mean over seeds; ranges in [`results/RESULTS.md`](results/RESULTS.md))
+
+| Experiment | Memoryless typed head | Bayes-optimal memoryless | BSF-S1 (learned) | Exact filter (floor) |
+|---|---|---|---|---|
+| E1 ECE inside the rare regime | 0.156 | **0.193** (more capacity, deeper hole) | 0.061 | 0.066 |
+| E1 ECE after regime shift (stale A) | 0.114 | 0.146 | 0.021 | 0.011 |
+| E1 memory ablation: BSF-S1 heads with A = 1πᵀ | — | 0.193 | **0.191** (identical to memoryless) | — |
+| E2 TCE passes (dispersion CI ∋ 1), of 5 seeds | 0 | 0 | 2 oracle labels · 3 unsupervised · 0 ablation | 5 |
+| E2 overdispersion vs binomial baseline | 1.83 (eq. 3.5 predicts 1.86) | — | — | — |
+| E3 flip mass, fair comparison | 1.0× (crisp conjunction) | — | 0.7× (single collapse; a thresholded mean matches it) | — |
+| E3 cascade P(gate 2 flips \| gate 1 flipped) | 0.03–0.52 by coupling weight, flat in ε | — | O(ε) | — |
+| E3 all-hops-flip slope (coincident / spread / independent) | 1.00 / 3.05 / 2.99 (theory 1 / 3 / 3) | | | |
+| E5 CRPS, diffuse borderline population | 0.25 (point output) | — | 0.17 (type-2 Q) | — |
+| E6 eq. 3.5 vs simulation, λ ∈ [0, 0.98] | within 1% at every λ | | | passes TCE 18/18; error rate 0.214 → 0.182 as λ rises |
 
 ## Integrity changelog
 
 We review adversarially and publish the scars.
+
+- **v1.3 — ablation bug caught before release.** The first memory ablation divided by the training prior but propagated the prior of the re-estimated A, which made it a disguised prior correction; on one seed it matched the filter. A referee pass caught it. Fixed, the ablation lands exactly on the memoryless head and fails TCE on 5/5 seeds, so BSF-S1's gain is attributable to its transition matrix alone. v1.3 also adds verified related work (prior shift, sequential calibration, multicalibration), E6, and figures.
 
 - **v1.2 — headline withdrawn.** An earlier draft claimed a "25–60×" cascade effect. Adversarial review showed the comparison was unfair (unmatched base rates); the experiment was rebuilt fair and **the headline was withdrawn**. The fair version stands in [`e3_cliff_cascade.py`](experiments/e3_cliff_cascade.py).
 - **v1.2 — bounds corrected.** Cascade bound re-conditioned; sequential fuzzy bound fixed; Lemma 1 assumptions stated precisely; upper tail proved; π fixed to the training-time marginal; symbols de-overloaded.
@@ -97,10 +115,10 @@ We review adversarially and publish the scars.
 
 ## Paper & citation
 
-- **PDF:** [`paper.pdf`](paper.pdf) (15 pp., compiled LaTeX)
+- **PDF:** [`paper.pdf`](paper.pdf) (23 pp., compiled LaTeX)
 - **LaTeX:** [`paper.tex`](paper.tex) · **Markdown:** [`paper.md`](paper.md) · **Outline:** [`outline.md`](outline.md)
 - **ResearchGate:** [publication page](https://www.researchgate.net/publication/414384305)
-- **Zenodo archive:** [10.5281/zenodo.22801506](https://doi.org/10.5281/zenodo.22801506)
+- **Zenodo archive (always the latest version):** [10.5281/zenodo.22801505](https://doi.org/10.5281/zenodo.22801505)
 
 ```bibtex
 @article{doan2026calibration,
@@ -109,10 +127,10 @@ We review adversarially and publish the scars.
                System-One Decision Models},
   author    = {Doan, Ngoc Anh Khoa},
   year      = {2026},
-  month     = sep,
-  doi       = {10.5281/zenodo.22801506},
+  month     = oct,
+  doi       = {10.5281/zenodo.22801505},
   url       = {https://github.com/dnakhoa/jev-deferred-crispification},
-  note      = {Position paper, preprint v1.2},
+  note      = {Position paper, preprint v1.3},
   license   = {CC BY 4.0}
 }
 ```
@@ -144,7 +162,7 @@ See [`experiments/common.py`](experiments/common.py) for the shared protocol. Pl
 If you want to signal-boost this work, copy-paste is fine:
 
 - **Hacker News title that works:** *"Calibration does not compose: per-hop ECE cannot see regime-shift errors (proofs + CPU repro)"*
-- **Tweet that works:** *"Your System-One decisions are calibrated per hop and blind per trajectory. Two lemmas, one principle (Deferred Crispification), two weight-free audit metrics (TCE/AMS). Reproduces in 2 min on CPU. The repo even lists the headline it withdrew for being unfair. DOI: 10.5281/zenodo.22801506"*
+- **Tweet that works:** *"Your System-One decisions are calibrated per hop and blind per trajectory. Two lemmas, one principle (Deferred Crispification), two weight-free audit metrics (TCE/AMS). Reproduces on a laptop CPU. The repo even lists the headline it withdrew for being unfair. DOI: 10.5281/zenodo.22801505"*
 - **LinkedIn angle:** *"Three review rounds, one headline withdrawn, five experiments across five seeds — what I learned writing a position paper that attacks the metric production teams actually fail on, instead of the one benchmarks celebrate."*
 
 ## AI-usage disclosure

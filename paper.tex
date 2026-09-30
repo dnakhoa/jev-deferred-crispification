@@ -13,6 +13,10 @@
 \usepackage{enumitem}
 \usepackage{caption}
 \usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric}
 \usepackage[round,authoryear]{natbib}
 \usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
 
@@ -40,20 +44,20 @@
 \title{\textbf{Calibration Does Not Compose, Types Destroy Vagueness:}\\[2pt]
 \large The Hidden-Markov and Fuzzy Primitives Missing from System-One Decision Models}
 \author{Anh Khoa Doan Ngoc\\ \small \texttt{khoa.doan@edge8.ai}}
-\date{\small Preprint v1.2 --- 17 September 2026}
+\date{\small Preprint v1.3 --- 1 October 2026}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-System-one decision models---fast, non-generative networks that emit typed, calibrated probabilistic decisions for machine-to-machine pipelines, of which TypeSafe AI's Jev, trained by Reinforcement Learning for Calibrated Decisions (RLCD), is the announced instance---are audited by hop-level calibration on stationary held-out data. We show that this class omits two structural primitives: recursive belief over a latent state (the hidden-Markov primitive) and graded predicate membership (the fuzzy primitive). We prove two negative results. Lemma~1: when outcomes are coupled through a latent Markov regime, marginal calibration is not preserved under regime shift, trajectory error counts are overdispersed relative to the binomial baseline that hop-level calibration implies, with a closed-form inflation factor, and every permutation-invariant audit statistic---expected calibration error included---has exactly zero power to detect this. Lemma~2: thresholding a typed score makes the composed pipeline action discontinuous; an $\varepsilon$-perturbation of evidence flips a full action on a set of measure $\Theta(\varepsilon)$, every downstream hop then receives an $O(1)$ input change so the conditional flip probability is $\Theta(1)$, and when several hops' thresholds cross at a common value of a shared latent---as when a harness re-thresholds a score the model has already thresholded---the all-hops-flip event has measure $\Theta(\varepsilon)$ rather than $\Theta(\varepsilon^H)$; a fuzzy membership composed by a t-norm and defuzzified once by a Lipschitz map keeps the action Lipschitz in the evidence. We state the Principle of Deferred Crispification and specify a reference architecture, Belief-State Fuzzy System-One (BSF-S1), whose output object carries a per-regime membership matrix, a calibrated distribution over the degree, and a scaled-likelihood vector over regimes, and collapses exactly once at the actuator at $O(K^2+KM)$ cost per step. Five CPU-scale experiments, the two temporal ones run over five seeds against the exact filter as the achievable floor and a Bayes-optimal memoryless head as the strongest memoryless competitor, are consistent with each prediction of the lemmas and expose where a learned approximation falls short of them; two operationally defined audit metrics (trajectory calibration error and action-mass sensitivity) can be run against a closed model from the outside. The paper is architectural: Jev is closed, and nothing here is an empirical claim about its internals.
+System-one decision models---fast, non-generative networks that emit typed, calibrated probabilistic decisions for machine-to-machine pipelines, of which TypeSafe AI's Jev, trained by Reinforcement Learning for Calibrated Decisions (RLCD), is the announced instance---are audited by hop-level calibration on stationary held-out data. We show that this class omits two structural primitives: recursive belief over a latent state (the hidden-Markov primitive) and graded predicate membership (the fuzzy primitive). We prove two negative results. Lemma~1: when outcomes are coupled through a latent Markov regime, marginal calibration is not preserved under regime shift, trajectory error counts are overdispersed relative to the binomial baseline that hop-level calibration implies, with a closed-form inflation factor, and every permutation-invariant audit statistic---expected calibration error included---has exactly zero power to detect this. Lemma~2: thresholding a typed score makes the composed pipeline action discontinuous; an $\varepsilon$-perturbation of evidence flips a full action on a set of measure $\Theta(\varepsilon)$, every downstream hop then receives an $O(1)$ input change so the conditional flip probability is $\Theta(1)$, and when several hops' thresholds cross at a common value of a shared latent---as when a harness re-thresholds a score the model has already thresholded---the all-hops-flip event has measure $\Theta(\varepsilon)$ rather than $\Theta(\varepsilon^H)$; a fuzzy membership composed by a t-norm and defuzzified once by a Lipschitz map keeps the action Lipschitz in the evidence. We state the Principle of Deferred Crispification and specify a reference architecture, Belief-State Fuzzy System-One (BSF-S1), whose output object carries a per-regime membership matrix, a calibrated distribution over the degree, and a scaled-likelihood vector over regimes, and collapses exactly once at the actuator at $O(K^2+KM)$ cost per step. Six CPU-scale experiments, with E1 and E2 run over five seeds against the exact filter as the achievable floor and a Bayes-optimal memoryless head as the strongest memoryless competitor, are consistent with each prediction of the lemmas and expose where a learned approximation falls short of them; two operationally defined audit metrics (trajectory calibration error and action-mass sensitivity) can be run against a closed model from the outside. The paper is architectural: Jev is closed, and nothing here is an empirical claim about its internals.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
 
 \subsection{The rise of system-one decision models}
 
-For most of the last five years the dominant interface to machine intelligence has been text: a prompt goes in, a string comes out, and software that wants a decision must parse, validate and threshold that string. On 15 September 2026 TypeSafe AI released Jev, which its authors describe as ``a frontier-intelligence function call: unstructured state in, typed probabilistic decisions out'' \citep{almeida2026jev}. Jev generates no text. Its output schema is fixed in advance through three primitives---\emph{Choice} (an enumeration with a probability attached to each option), \emph{Score} (a rating against ordered levels, returned as a bounded scalar together with a probability per level) and \emph{Noul}---and Choice and Score answers are accompanied by a confidence score; the documentation's own example is a ticket-routing Choice over \texttt{billing}, \texttt{technical} and \texttt{account}, returned with a probability per option \citep{typesafe2026docs}. All outputs of a query are produced in a single parallel pass rather than autoregressively, which is where the speed comes from: end-to-end latency of 70--500\,ms, ``40$\times$--200$\times$ faster'' than frontier language models, input priced at \$0.042 per million tokens and output ``too cheap to meter'' \citep{almeida2026jev}. The launch drew immediate trade-press coverage \citep{claburn2026register}; every technical statement in this paper is taken from TypeSafe's own launch post and documentation. The training method is named Reinforcement Learning for Calibrated Decisions (RLCD) and is said to optimise for ``answers with epistemically honest probabilities'' \citep{almeida2026jev}.
+For most of the last five years the dominant interface to machine intelligence has been text: a prompt goes in, a string comes out, and software that wants a decision must parse, validate and threshold that string. On 15 September 2026 TypeSafe AI released Jev, which its authors describe as ``a frontier-intelligence function call: unstructured state in, typed probabilistic decisions out'' \citep{almeida2026jev}. Jev generates no text. Its output schema is fixed in advance through three primitives---\emph{Choice} (an enumeration with a probability attached to each option), \emph{Score} (a rating against ordered levels, returned as a bounded scalar together with a probability per level) and \emph{Noul}---and Choice and Score answers are accompanied by a confidence score; the documentation's own example is a ticket-routing Choice over \texttt{billing}, \texttt{technical} and \texttt{account}, returned with a probability per option \citep{typesafe2026docs}. All outputs of a query are produced in a single parallel pass rather than autoregressively, by what the launch post calls a ``parallel sampler for maximum efficiency''; the stated end-to-end latency is 70--500\,ms, 40 to 200 times faster than frontier models on System-One-shaped queries, input priced at \$0.042 per million tokens and output ``too cheap to meter'' \citep{almeida2026jev}. The launch drew immediate trade-press coverage \citep{claburn2026register}; every technical statement in this paper is taken from TypeSafe's own launch post and documentation. The training method is named Reinforcement Learning for Calibrated Decisions (RLCD) and is said to optimise for ``answers with epistemically honest probabilities on System One tasks'' \citep{almeida2026jev}.
 
 We take this launch as the concrete instance of a class we call \emph{system-one decision models}: fast, memoryless, typed, calibrated decision heads intended to be consumed by software rather than by people. The class is new enough that its audit vocabulary has been borrowed wholesale from the classification literature. This paper asks whether that vocabulary is adequate.
 
@@ -81,14 +85,14 @@ Both omissions are \emph{structural}: they concern what object the model emits a
 \item[\textbf{C2}] A diagnosis of the vagueness hole and Lemma~\ref{lem:cliff} (cliff cascade): discontinuity of the thresholded pipeline, $\Theta(\varepsilon)$ flip mass with $O(1)$ jumps, $\Theta(1)$ conditional cascade probability, $\Theta(\varepsilon)$ all-hops-flip under coincident thresholds, and Lipschitz continuity of the fuzzy alternative.
 \item[\textbf{C3}] The Principle of Deferred Crispification.
 \item[\textbf{C4}] BSF-S1, a reference architecture with a specified output object, a composition algebra for each component, an exact forward filter over the scaled-likelihood component, and a single actuator collapse.
-\item[\textbf{C5}] Two operationally defined audit metrics, trajectory calibration error (TCE) and action-mass sensitivity (AMS), and five CPU-scale experiments, the temporal ones run over five seeds against the exact filter as floor, whose results are consistent with every prediction of the lemmas and show that the temporal hole widens as the memoryless head's capacity grows.
+\item[\textbf{C5}] Two operationally defined audit metrics, trajectory calibration error (TCE) and action-mass sensitivity (AMS), and six CPU-scale experiments, E1 and E2 run over five seeds against the exact filter as floor, whose results are consistent with every prediction of the lemmas, check equation~\eqref{eq:varN} numerically across regime persistence, show the exact filter trajectory-calibrated at every persistence level, show that the temporal hole widens as the memoryless head's capacity grows, and attribute BSF-S1's improvement to its transition matrix by ablation.
 \end{itemize}
 
 \section{Background and Related Work}\label{sec:background}
 
 \subsection{System-one decision models and RLCD}
 
-What is public about Jev \citep{almeida2026jev,typesafe2026docs} is the following. The model ``evaluates a state and returns typed answers and probabilities''; its probabilities ``are optimized against outcomes to reflect uncertainty''; they ``do not write replies, produce code, or generate explanations of their reasoning''; and all outputs of a query are generated in parallel. Two further statements in the launch material are load-bearing for this paper. First, the recommended integration pattern is to ``ask independent questions together \ldots\ combine the answers with deterministic checks in code, then route the case [for action or review]'' \citep{typesafe2026docs}: the harness thresholds the returned probabilities. Second, the authors observe that ``the most reliable real-world workflows tend to have many independent, decomposed questions, with fine-grained behavior that's dependent on probabilities instead of discrete decisions. The end result is discrete branching\,[\ldots]'' \citep{almeida2026jev}. This is an accurate description of the pipeline whose composition properties Sections~\ref{sec:temporal} and~\ref{sec:vague} analyse. The launch material also claims consistency---the model ``returns similar answers for similar inputs''---which is a Lipschitz-type property of the \emph{score}; Lemma~\ref{lem:cliff} concerns what happens to that property once the score is thresholded.
+What is public about Jev is the following. The documentation states that a System One model ``evaluates a state and returns typed answers and probabilities'', that ``their probabilities are optimized against outcomes to reflect uncertainty'', and that such models ``do not write replies, produce code, or generate explanations of their reasoning'' \citep{typesafe2026docs}; both the documentation and the launch post state that all questions in a request are evaluated in parallel \citep{typesafe2026docs,almeida2026jev}. Two further statements in the launch material are load-bearing for this paper. First, the recommended integration pattern is to ``ask independent questions together \ldots\ combine the answers with deterministic checks in code, then route the case for action or review'' \citep{typesafe2026docs}: the harness thresholds the returned probabilities. Second, the authors observe that ``the most reliable real-world workflows tend to have many independent, decomposed questions, with fine-grained behavior that's dependent on probabilities instead of discrete decisions. The end result is discrete branching\,[\ldots]'' \citep{almeida2026jev}. This is an accurate description of the pipeline whose composition properties Sections~\ref{sec:temporal} and~\ref{sec:vague} analyse. The launch material also claims consistency---the model ``returns similar answers for similar inputs''---which is a Lipschitz-type property of the \emph{score}; Lemma~\ref{lem:cliff} concerns what happens to that property once the score is thresholded.
 
 Jev's weights, architecture and training data are closed. Every statement in this paper is about the \emph{class} of memoryless typed calibrated heads, of which Jev is the announced instance; nothing here is an empirical claim about Jev's internals.
 
@@ -98,19 +102,22 @@ Let $s_t \in \{1,\dots,K\}$ be a latent regime following a Markov chain with tra
 \begin{equation}\label{eq:filter}
 b_t(s) \;\propto\; P(o_t \mid s)\,\sum_{s'} A_{s's}\, b_{t-1}(s')
 \end{equation}
-is exact inference given $A$ and the emission model. Regime-switching econometrics \citep{hamilton1989} is the same recursion with Gaussian emissions; partially observable Markov decision processes \citep{kaelbling1998} add actions. The hybrid HMM/neural-network literature \citep{bourlard1994} established that a discriminatively trained network emitting $P(s\mid o)$ can serve as an emission model once its outputs are ``normalized by class prior probabilities to provide scaled likelihoods'' $P(o\mid s)/P(o) = P(s\mid o)/\pi(s)$. This is the bridge used in Section~\ref{sec:repair1}.
+is exact inference given $A$ and the emission model. Regime-switching econometrics \citep{hamilton1989} is the same recursion with Gaussian autoregressive emissions, run over the augmented state of current and lagged regimes; partially observable Markov decision processes \citep{kaelbling1998} use the same belief update with action-conditioned transitions. The hybrid HMM/neural-network literature \citep{bourlard1994} established that a discriminatively trained network emitting $P(s\mid o)$ can serve as an emission model once its outputs are divided ``by the prior probabilities of the classes observed on the training set'' (p.~128), giving scaled likelihoods $P(o\mid s)/P(o) = P(s\mid o)/\pi(s)$. This is the bridge used in Section~\ref{sec:repair1}.
 
 \subsection{Fuzzy sets and fuzzy logic}
 
-A type-1 fuzzy set on $X$ is a membership function $\mu: X \to [0,1]$ \citep{zadeh1965}. Conjunction and disjunction are \emph{truth-functional}: the degree of ``$A$ and $B$'' is $\mathsf T(\mu_A,\mu_B)$ for a t-norm $\mathsf T$ (minimum, product, {\L}ukasiewicz), and the degree of ``$A$ or $B$'' is a t-conorm $\mathsf S$ \citep{klement2000}. Minimum is the unique idempotent t-norm. Mamdani control \citep{mamdani1975} evaluates a rule base, aggregates the consequents into an output membership, and defuzzifies \emph{once}, at the plant input, typically by centroid. A type-2 fuzzy set \citep{zadeh1975,mendel2007} attaches to each $x$ a distribution over the degree, separating ``how much $x$ is $M$'' from ``how sure we are about how much.''
+A type-1 fuzzy set on $X$ is a membership function $\mu: X \to [0,1]$ \citep{zadeh1965}. Conjunction and disjunction are \emph{truth-functional}: the degree of ``$A$ and $B$'' is $\mathsf T(\mu_A,\mu_B)$ for a t-norm $\mathsf T$ (minimum, product, {\L}ukasiewicz), and the degree of ``$A$ or $B$'' is a t-conorm $\mathsf S$ \citep{klement2000}. Minimum is the unique idempotent t-norm \citep{klement2000}. Mamdani control \citep{mamdani1975} evaluates a rule base, aggregates the consequents into an output membership, and selects one action \emph{once}, at the plant input; the original controller took the action of largest membership grade (the midpoint of a plateau), and centroid defuzzification became common later. A type-2 fuzzy set \citep{zadeh1975,mendel2007} attaches to each $x$ a fuzzy set of admissible membership grades, whose secondary grades are possibilities rather than probabilities, and so separates ``how much $x$ is $M$'' from ``how sure we are about how much.''
 
 \subsection{Calibration and proper scoring}
 
-A score $f$ is marginally calibrated under $P$ if $\E_P[Y \mid f(X)=p] = p$ for all $p$. ECE is the binned $L^1$ gap between this conditional mean and $p$ \citep{guo2017}. A scoring rule is strictly proper if the true distribution uniquely minimises the expected score \citep{gneiting2007}. Calibration of a marginal says nothing about the joint distribution of several decisions; that distinction is the entire content of Section~\ref{sec:temporal}.
+A score $f$ is marginally calibrated under $P$ if $\E_P[Y \mid f(X)=p] = p$ for all $p$. ECE bins predictions by confidence and takes the bin-size-weighted average of the gap between accuracy and confidence \citep{guo2017}; for a binary score it is the binned $L^1$ gap between $\E[Y\mid f(X)]$ and $f(X)$. A scoring rule is strictly proper if the true distribution uniquely optimises the expected score \citep{gneiting2007}, who maximise it in their positive orientation; we use the equivalent loss orientation, in which it is minimised. Calibration of a marginal says nothing about the joint distribution of several decisions; that distinction is the entire content of Section~\ref{sec:temporal}.
+
+\subsection{Calibration over time, under shift, and on subgroups}\label{sec:related}
+Three literatures bear directly on Section~\ref{sec:temporal}, and each is a partial answer to it. \emph{Sequential calibration} is as old as the notion itself: \citet{dawid1982} formalised calibration for sequences of probability forecasts and showed that a coherent Bayesian expects to be well calibrated, and \citet{foster1998} showed that a randomised forecaster can be $\varepsilon$-calibrated, with probability close to one, against any outcome sequence chosen adaptively by an adversary who cannot see the forecaster's current randomisation. Foster--Vohra calibration, like ECE, is a function of the empirical distribution of (forecast, outcome) pairs, with forecasts on a fixed finite grid, and so at any fixed horizon shares the blindness of Lemma~\ref{lem:compose}(iv). Dawid's basic notion likewise conditions only on the forecast value, but his calibration theorem extends it to any \emph{admissible} selection process, a rule whose decision to include trial $t$ uses only information available before outcome $t$. A rule such as ``select $t$ whenever $E_{t-1}=1$'' is admissible and would expose clustering; Dawid himself selects trials following an occurrence to test a Bernoulli model against Markov dependence. TCE can be read as a window-count instance of that idea, and history-dependent selection is exactly what hop-level audit practice omits. \emph{Prior shift} on the latent regime is the static version of Lemma~\ref{lem:compose}(i). \citet{saerens2002} showed that when class priors change, a classifier's posteriors can be reweighted by the ratio of new to old priors, with the new priors estimated by EM on unlabelled deployment data; \citet{lipton2018} detect and correct label shift with a black-box predictor's confusion matrix; and \citet{ovadia2019} document that calibration measured in distribution does not survive dataset shift. The forward filter of Section~\ref{sec:repair1} is the dynamic generalisation of the Saerens reweighting: the scaled likelihood is exactly the posterior divided by the old prior, and the predicted belief $A^\top b_{t-1}$ plays the role of the new prior, propagated by $A$ every step instead of estimated once; the analogue of their EM step is Baum--Welch for $A$. Note that the shift is in the latent $s$, not in the decision target $d$: on $(o,d)$ both $P(o)$ and $P(d\mid o)$ change and $P(o\mid d)$ is not invariant, so label-shift correction applied to $d$ would be misspecified. Online recalibration \citep{gibbs2021} adapts a single global map from realised outcomes with a long-run guarantee. The online-Platt baseline of Section~\ref{sec:e1} is of this type: it repairs the shifted marginal but not the sojourn. The history-window head is a different repair: it tracks the sojourn closely but remains tied to the training prior. \emph{Subgroup calibration} \citep{hebertjohnson2018} requires calibration on every subpopulation identifiable by a class of functions of the input. The subpopulation that matters here, $\{t: s_t=k\}$, is not a function of any observable, current or past. When the input is $o_t$, the Bayes-optimal memoryless head is already calibrated conditional on $o_t$ itself under $\ptrain$, and hence multicalibrated with respect to every function of $o_t$; yet it is the worst row of Table~\ref{tab:e1}. Multicalibration over functions of the current input therefore cannot separate the frozen-prior head from the filter; over functions of the history it can at best enforce calibration on groups weighted by $P(s_t=k\mid o_{1:t})$, which the filter satisfies by construction; and it is a property under $\ptrain$ that says nothing under shift. This is the precise sense in which the groups of Section~\ref{sec:intro} are ``silent''. Post-hoc calibrators \citep{guo2017,kull2019} are hop-level repairs and inherit the same limitation.
 
 \subsection{Scope and non-goals}
 
-We make no claims about generative models, network architecture, scale, context length or caching; no claims about cognition (the ``system-one'' label is Kahneman's framing \citep{kahneman2011} only). We study the decision \emph{output object} and its \emph{composition} across hops.
+We make no claims about generative models, network architecture, scale, context length or caching; no claims about cognition (the ``system-one'' label follows Kahneman's popularisation \citep{kahneman2011} of the System~1 / System~2 terms, which he attributes to Stanovich and West, and is used as a label only). We study the decision \emph{output object} and its \emph{composition} across hops.
 
 \section{Analysis I: The Temporal Hole}\label{sec:temporal}
 
@@ -162,7 +169,7 @@ $\varphi>1$ iff $\lambda>0$ and $\Var_\pi(e)>0$. Error clustering has the correl
 (i) is \eqref{eq:ptrain} subtracted from \eqref{eq:pserve}. (ii): condition on $(s_t,s_{t+k})$; by the independences $\E[E_tE_{t+k}] = e^\top\mathrm{diag}(\pi)A^k e$; substitute $A^k = \mathbf 1\pi^\top + \lambda^k(I-\mathbf 1\pi^\top)$, valid for every $2\times2$ stochastic matrix; the first term gives $\bar e^2$ and the second $\lambda^k\Var_\pi(e)$. Summing covariances gives \eqref{eq:varN}; the geometric series gives \eqref{eq:phi}. (iii): $x\mapsto x^T$ is convex on $[0,1]$; at $\lambda=1$ Jensen gives the inequality directly, and for $0<\lambda<1$ the two-state chain is the mixture $A = (1-\lambda)\mathbf 1\pi^\top + \lambda I$, whose paths consist of independent frozen blocks. (iv): ECE is a function of the multiset of pairs, and multisets are permutation-invariant. Full proofs are in Appendix~\ref{app:proofs}.
 \end{proof}
 
-\paragraph{Numerical check.} With $a=0.05$, $b=0.10$, $e=(0.05,0.40)$ and $T=50$, simulation over $2\times10^5$ trajectories gives $\Var(N_T)=20.30$ against $20.31$ from \eqref{eq:varN} and $6.94$ for the binomial baseline; $P(N_T=0)$ is $0.0071$ against $0.0001$ for the independent baseline. The script is in the repository.
+\paragraph{Numerical check.} Section~\ref{sec:e6} verifies \eqref{eq:varN} by simulation across $\lambda\in[0,0.98]$, \eqref{eq:cov} at $\lambda=0.95$, and the closed forms of (ii)--(iii) at a fixed operating point.
 
 \subsection{Consequence}
 
@@ -189,7 +196,7 @@ Given a correct $(A,g,h)$ the decision posterior is the true conditional, hence 
 
 \subsection{Two distinct ``not-sures''}
 
-Epistemic uncertainty: the world is in exactly one crisp state, we do not know which, and a probability over states sums to one. Ontological vagueness: the predicate itself has no sharp boundary; membership is a degree; degrees over different predicates need not sum to anything. A single number in $[0,1]$ attached to an enumeration value conflates the two, and every consumer of that number must guess which one it is receiving.
+Epistemic uncertainty: the world is in exactly one crisp state, we do not know which, and a probability over states sums to one. Ontological vagueness: the predicate itself has no sharp boundary; membership is a degree; degrees over different predicates need not sum to anything. A single number in $[0,1]$ attached to an enumeration value conflates the two, and every consumer of that number must guess which one it is receiving. Neither is the aleatoric uncertainty of the ML literature \citep{hullermeier2021}, which is still uncertainty about a crisp outcome.
 
 \subsection{Typed enumerations as frozen ontology commitments}
 
@@ -237,7 +244,7 @@ Probability is not truth-functional: $P(A\wedge B)$ is not determined by $P(A)$ 
 
 \subsection{Repair primitive}\label{sec:repair2}
 
-Emit a membership vector $\mu(x)\in[0,1]^M$ over the $M$ linguistic predicates the schema cares about, with no sum constraint, and a type-2 layer $Q[\mu]$---a distribution over $[0,1]^M$, in practice per-predicate Beta parameters---carrying calibrated uncertainty about the degree. Calibration of $Q$ is quantile calibration, $P(\mu_{\mathrm{true},m}\le Q_m^{-1}(\alpha))=\alpha$, audited by the continuous ranked probability score or the pinball loss against elicited degrees. The two axes are never merged.
+Emit a membership vector $\mu(x)\in[0,1]^M$ over the $M$ linguistic predicates the schema cares about, with no sum constraint, and a type-2 layer $Q[\mu]$---a distribution over $[0,1]^M$, in practice per-predicate Beta parameters---carrying calibrated uncertainty about the degree. $Q$ is a probabilistic analogue of a type-2 fuzzy set: the secondary grades of \citet{zadeh1975} and \citet{mendel2007} are possibilities, whereas we use a probability distribution so that $Q$ can be audited with proper scores. Calibration of $Q$ is quantile calibration, $P(\mu_{\mathrm{true},m}\le Q_m^{-1}(\alpha))=\alpha$, audited by the continuous ranked probability score or the pinball loss against elicited degrees. The two axes are never merged.
 
 \section{The Principle of Deferred Crispification}\label{sec:principle}
 
@@ -263,6 +270,12 @@ Uncertainty about degree & $Q[\mu]$ & mixture / posterior update & proper scores
 No structure may be collapsed before the actuator. Collapse---defuzzify, threshold, sample---happens exactly once, with full decision context: the belief over regimes, the cost matrix, and every membership in hand.
 \end{principle}
 
+\begin{figure}[t]
+\centering
+\resizebox{\textwidth}{!}{\input{figures/schematic.tex}}
+\caption{The two pipelines of this paper. (a) A typed pipeline collapses at every hop: the model's score is thresholded, the harness combines booleans and thresholds again, and a downstream hop consumes the boolean. Each diamond is a discontinuity (Lemma~\ref{lem:cliff}(i)); a flip at one diamond moves the next hop's input by $O(1)$ (part (iii)); if two diamonds threshold the same score, as when a harness re-thresholds a score the model has already thresholded, they flip together (part (iv)). (b) BSF-S1 passes the uncollapsed object $O_t$ forward, composes each component with its own algebra, carries the belief across time (Lemma~\ref{lem:compose}), and collapses once.}\label{fig:schematic}
+\end{figure}
+
 Each early collapse is a specific information loss. Thresholding $\mu$ discards the degree (Lemma~\ref{lem:cliff}). Marginalising $b_t$ discards the regime (Lemma~\ref{lem:compose}). Collapsing $Q$ to its mean discards whether the degree is known. None of these losses can be recovered downstream, because the downstream consumer receives only the collapsed object.
 
 \subsection{Output object}
@@ -280,11 +293,11 @@ Downstream hops consume $O$ uncollapsed. Rule bases compose $\mu$ with t-norms a
 
 Four independent engineering traditions arrived at deferred crispification in their own dialects, and their agreement is the strongest evidence we can offer for the principle short of the experiments of Section~\ref{sec:experiments}.
 
-\emph{Fuzzy control.} Since Mamdani's steam-engine controller \citep{mamdani1975}, the industrial pattern has been: fuzzify the sensor reading, evaluate every rule to a firing degree, aggregate the consequents into one output membership, and defuzzify once at the plant input. Fifty years of deployment in process control, consumer appliances and automotive systems have not produced a successful variant that thresholds inside the rule base. The reason is Lemma~\ref{lem:cliff}: a controller that thresholds early chatters at the boundary.
+\emph{Fuzzy control.} Mamdani's steam-engine controller \citep{mamdani1975} set the pattern: the sampled plant state enters every rule, each rule fires to a degree, the consequents are aggregated into one output membership, and a single deterministic action is chosen at the plant input. Lemma~\ref{lem:cliff} gives a reason to prefer that ordering over thresholding inside the rule base, which would place a cliff at every internal threshold. It also sharpens it: the original controller chose the action of largest membership grade, which is the mean-of-maxima rule the Remark after Lemma~\ref{lem:cliff} shows to be discontinuous. The principle fixes \emph{where} the collapse happens; the Remark fixes \emph{which} collapse keeps the action Lipschitz.
 
-\emph{Probabilistic forecasting.} Meteorology and finance learned in the 1990s to deliver full predictive distributions to the decision-maker and to audit them with proper scoring rules \citep{gneiting2007}, precisely because a point forecast collapsed at the model discards the information a cost-sensitive consumer needs. The ensemble is carried to the head; the decision is made there.
+\emph{Probabilistic forecasting.} Probabilistic forecasting has become routine in weather and climate prediction and in computational finance, and proper scoring rules arise naturally from decision problems \citep{gneiting2007}; a full predictive distribution serves consumers with different cost--loss ratios, which a single point forecast cannot. The distribution is carried to the consumer; the decision is made there.
 
-\emph{Regime-switching econometrics and POMDP planning.} Hamilton's filter \citep{hamilton1989} carries the filtered regime probability through time and never commits to a point regime; POMDP planners \citep{kaelbling1998} act on the belief state, not on its argmax. In both, the belief is the carried object and the collapse is the action.
+\emph{Regime-switching econometrics and POMDP planning.} Hamilton's filter \citep{hamilton1989} carries the full filtered regime probability through time and never conditions on a point estimate of the regime; his recession dates, read off the smoothed probability afterwards, are never fed back into the recursion; POMDP planners \citep{kaelbling1998} act on the belief state, not on its argmax. In both, the belief is the carried object and the collapse is the action.
 
 \emph{Contemporary agent stacks} violate the principle twice. The model thresholds (or the harness argmaxes the returned distribution), and the harness thresholds again on the resulting booleans. Jev's integration guidance---combine typed probabilities ``with deterministic checks in code, then route'' \citep{typesafe2026docs}---is this pattern stated as best practice. Lemma~\ref{lem:cliff}(iii)--(iv) is the analysis of what the second threshold does to the first: (iii) when the second hop consumes the first's boolean, (iv) when both threshold the same score.
 
@@ -297,7 +310,7 @@ One shared encoder $\phi(o_t)$ feeds: a regime head $g(o_t)\in\simplex^K$; per-r
 $A\in\R^{K\times K}$ row-stochastic, parameterised by row-wise softmax of a free matrix. We keep the probabilistic reading so that \eqref{eq:update} is exact Bayes.
 
 \subsection{Update block and an open problem}\label{sec:open}
-Predict and update by \eqref{eq:update} with $\Delta b_t(s)=g_s(o_t)/\pi(s)$, where $\pi$ is the regime marginal under which $g$ was trained, stored with $g$ and never recomputed from a re-estimated $A$ unless $g$ is retrained (Section~\ref{sec:repair1}). The belief $b_t$ renormalises because it is a probability over a partition; the memberships $\mu_t^{(s)}$ do not, because predicates are not a partition. The belief-weighted mixture $\bar\mu_t$ is mathematically well-defined, but whether ``membership in $M$ under uncertainty about which regime's $M$ applies'' should be the mixture, the minimum over plausible regimes, or Zadeh's probability of a fuzzy event is a semantic question we state and do not resolve. BSF-S1 sidesteps it by passing the per-regime matrix and letting the actuator choose.
+Predict and update by \eqref{eq:update} with $\Delta b_t(s)=g_s(o_t)/\pi(s)$, where $\pi$ is the regime marginal under which $g$ was trained, stored with $g$ and never recomputed from a re-estimated $A$ unless $g$ is retrained (Section~\ref{sec:repair1}). The belief $b_t$ renormalises because it is a probability over a partition; the memberships $\mu_t^{(s)}$ do not, because predicates are not a partition. The belief-weighted mixture $\bar\mu_t$ is mathematically well-defined, but whether ``membership in $M$ under uncertainty about which regime's $M$ applies'' should be the mixture---for each $x$, the mixture equals Zadeh's probability, under $b_t$, of the fuzzy event on the regime set with membership $s\mapsto\mu^{(s)}(x)$ \citep{zadeh1968}---or a non-additive aggregate such as the minimum over plausible regimes, is a semantic question we state and do not resolve. BSF-S1 sidesteps it by passing the per-regime matrix and letting the actuator choose.
 
 \subsection{Propagation and actuator}
 Pass $O(x_t)$ and, for convenience, $b_t$ itself flagged as \emph{not composable}. The actuator performs the single collapse with context: belief-weighted mixture over regimes, t-norm aggregation across the rule base, regularised centroid defuzzification, cost-sensitive decision, optional sampling.
@@ -361,12 +374,12 @@ Pass $O(x_t)$ and, for convenience, $b_t$ itself flagged as \emph{not composable
 
 \section{Experiments}\label{sec:experiments}
 
-All experiments run on a laptop CPU in about a minute, use only NumPy and SciPy, and are reproduced by one command in the repository. Models are deliberately tiny---logistic heads on quadratic features and a two-regime filter---because every claim concerns the output object and its composition, not capacity.
+All experiments run on a laptop CPU in under twenty minutes, use only NumPy and SciPy, and are reproduced by one command in the repository. Models are deliberately tiny---logistic heads on quadratic features and a two-regime filter---because every claim concerns the output object and its composition, not capacity.
 
 \subsection{Operational definitions of the two audit metrics}
 
 \begin{definition}[Trajectory calibration error, TCE$_w$]
-Fix a window length $w$. Every decision model implies a joint predictive distribution for the window error count $N_w=\sum_{t\in\text{window}}E_t$: a memoryless head implies the Poisson-binomial distribution of independent Bernoulli$(1-\max(p_t,1-p_t))$ errors, which is the only joint it can express; BSF-S1 implies the distribution obtained by forward-filtering, backward-sampling regime paths (Appendix~\ref{app:ffbs}) and drawing errors from the per-regime heads. Let $F_i$ be the implied CDF for window $i$ and $n_i$ the realised count. The randomised probability integral transform is $u_i\sim\mathrm{Unif}[F_i(n_i-1),F_i(n_i)]$. TCE$_w$ reports (a) the dispersion ratio $\hat\varphi=\Var_{\text{realised}}(N_w)/\Var_{\text{implied}}(N_w)$, where the implied variance is the model's total variance (within-window variance plus variance of window means), with a window-bootstrap 95\% confidence interval, and (b) the Kolmogorov--Smirnov $p$-value of $\{u_i\}$ against $\mathrm{Unif}[0,1]$. Only (a) is specific to clustering: any hop-level miscalibration also makes the PIT non-uniform, so (b) is a secondary check to be read together with hop-level ECE, and Section~\ref{sec:e2} includes a time-shuffled control that shows the difference. A model \emph{passes} TCE$_w$ if the confidence interval for $\hat\varphi$ contains $1$. Computing TCE requires realised outcomes for a labelled stream and a fixed decision rule; it does not require model internals.
+Fix a window length $w$. Every decision model implies a joint predictive distribution for the window error count $N_w=\sum_{t\in\text{window}}E_t$: a memoryless head implies the Poisson-binomial distribution of independent Bernoulli$(1-\max(p_t,1-p_t))$ errors, which is the only joint it can express; BSF-S1 implies the distribution obtained by forward-filtering, backward-sampling regime paths (Appendix~\ref{app:ffbs}) and drawing errors from the per-regime heads. Let $F_i$ be the implied CDF for window $i$ and $n_i$ the realised count. For these discrete predictive distributions we use the randomised probability integral transform $u_i\sim\mathrm{Unif}[F_i(n_i-1),F_i(n_i)]$, as presented by \citet{czado2009}, who also propose a non-randomised version that could be substituted; checks of PIT uniformity are a cornerstone of calibration assessment \citep{gneiting2007sharp}. TCE$_w$ reports (a) the dispersion ratio $\hat\varphi=\Var_{\text{realised}}(N_w)/\Var_{\text{implied}}(N_w)$, where the implied variance is the model's total variance (within-window variance plus variance of window means), with a window-bootstrap 95\% confidence interval, and (b) the Kolmogorov--Smirnov $p$-value of $\{u_i\}$ against $\mathrm{Unif}[0,1]$. Only (a) is specific to clustering: any hop-level miscalibration also makes the PIT non-uniform, so (b) is a secondary check to be read together with hop-level ECE, and Section~\ref{sec:e2} includes a time-shuffled control that shows the difference. A model \emph{passes} TCE$_w$ if the confidence interval for $\hat\varphi$ contains $1$. Computing TCE requires realised outcomes for a labelled stream and a fixed decision rule; it does not require model internals.
 \end{definition}
 
 \begin{definition}[Action-mass sensitivity, AMS$(\varepsilon)$]
@@ -374,7 +387,7 @@ Fix a perturbation model: \emph{adversarial}, $\delta=\argmax_{\norm{\delta}\le\
 \end{definition}
 
 \subsection{Generator and protocol}
-The two-regime stream of Appendix~\ref{app:gen} with $a=0.01$, $b=0.04$ ($\pi=(0.8,0.2)$, $\lambda=0.95$), emission means differing by $0.5$ in each coordinate with unit covariance so that one observation is weakly informative about the regime, and a logistic label link $P(d=1\mid o,s)=\sigma(3\,o_{k(s)})$ with $k(0)=1$, $k(1)=2$ so that the per-regime heads are well specified. The code labels the two regimes $0$ and $1$ where the lemmas write $1$ and $2$. E1 and E2 are run on five seeds and reported as mean [min, max]. Both temporal tables include the \emph{exact filter} with the true $(A,g,h)$: Lemma~\ref{lem:compose} is a statement about that object, and it is the achievable floor against which every learned system should be read. Two BSF-S1 variants are reported: one trained with regime labels (the oracle setting) and one whose regimes are learned without labels by a two-state Gaussian-HMM EM on the observations alone (label agreement 92\%), which discharges the oracle-label concern of Section~\ref{sec:threats}.
+The two-regime stream of Appendix~\ref{app:gen} with $a=0.01$, $b=0.04$ ($\pi=(0.8,0.2)$, $\lambda=0.95$), emission means differing by $0.5$ in each coordinate with unit covariance so that one observation is weakly informative about the regime, and a logistic label link $P(d=1\mid o,s)=\sigma(3\,o_{k(s)})$ with $k(0)=1$, $k(1)=2$ so that the per-regime heads are well specified. The code labels the two regimes $0$ and $1$ where the lemmas write $1$ and $2$. E1 and E2 are run on five seeds and reported as mean [min, max]. Both temporal tables include the \emph{exact filter} with the true $(A,g,h)$: Lemma~\ref{lem:compose} is a statement about that object, and it is the achievable floor against which every learned system should be read. An ablation keeps BSF-S1's learned heads and replaces its transition matrix by $A=\mathbf 1\pi^\top$, regimes redrawn independently every step: whatever BSF-S1 gains over that row is attributable to the transition matrix alone. Two BSF-S1 variants are reported: one trained with regime labels (the oracle setting) and one whose regimes are learned without labels by a two-state Gaussian-HMM EM on the observations alone (label agreement 92\%), which addresses, for these streams, the oracle-label concern of Section~\ref{sec:threats}.
 
 \subsection{E1: Regime-shift stress (Lemma~\ref{lem:compose}(i))}\label{sec:e1}
 \begin{table}[h]\centering\scriptsize\setlength{\tabcolsep}{3pt}
@@ -386,11 +399,14 @@ History-window head, $L=10$ & 0.010 [0.009, 0.014] & 0.077 [0.058, 0.087] & 0.03
 Memoryless + online Platt, $W=500$ & 0.019 [0.017, 0.022] & 0.160 [0.151, 0.169] & 0.027 [0.019, 0.032] & 0.478 [0.475, 0.485] & 0.671 [0.668, 0.675]\\
 BSF-S1, oracle regime labels & 0.011 [0.008, 0.017] & 0.061 [0.017, 0.116] & 0.021 [0.010, 0.040] & 0.440 [0.425, 0.485] & 0.788 [0.758, 0.807]\\
 BSF-S1, unsupervised regimes & 0.016 [0.007, 0.027] & 0.060 [0.022, 0.092] & 0.018 [0.005, 0.038] & 0.431 [0.424, 0.442] & 0.765 [0.746, 0.780]\\
+Ablation: BSF-S1 heads, $A=\mathbf 1\pi^\top$ & 0.007 [0.005, 0.009] & 0.191 [0.180, 0.202] & 0.144 [0.140, 0.151] & 0.462 [0.459, 0.467] & 0.651 [0.647, 0.657]\\
 Exact filter, true $(A,g,h)$ (floor) & 0.007 [0.005, 0.008] & 0.066 [0.059, 0.076] & 0.011 [0.008, 0.014] & 0.423 [0.420, 0.426] & 0.785 [0.781, 0.790]\\
 \bottomrule\end{tabularx}
 \caption{E1, five seeds. Regime-conditional ECE conditions on the true regime, which is outside the filter's information set, so even the exact filter has a nonzero floor in that column; rows are to be read against it.}\label{tab:e1}
 \end{table}
-Three things the table shows. First, the temporal hole is not a capacity artefact: the Bayes-optimal memoryless head, which has infinite capacity and is perfectly calibrated on the stationary stream (ECE $0.007$, the same as the exact filter), is the \emph{worst} row inside the rare regime ($0.193$) and after the shift ($0.146$), because a better memoryless head commits more precisely to the frozen prior. Second, the repairs behave as Lemma~\ref{lem:compose}(i) predicts: online recalibration from realised outcomes repairs the shifted-marginal row ($0.114\to0.027$) and leaves the within-sojourn row untouched ($0.160$), because it re-estimates one global prior rather than tracking the regime; a history-window head closes half to two-thirds of the gap in both columns but remains calibrated to a frozen prior. Third, both BSF-S1 variants match the exact-filter floor inside the rare regime and come within a factor of two of it on the other columns, with the unsupervised variant tracking the oracle one throughout; the seed range on the learned filters is wide (regime-1 ECE $0.017$--$0.116$) because Baum--Welch occasionally mis-estimates the transition rates, which is the filter-misspecification failure mode of Section~\ref{sec:arch} and the reason Algorithm~3 verifies TCE before deployment.
+\begin{figure}[t]\centering\includegraphics[width=0.62\textwidth]{figures/fig_e1_regime1.pdf}
+\caption{E1, the rare-regime column of Table~\ref{tab:e1}. Memoryless heads cluster far from the exact-filter floor; a better memoryless head is further away; removing the transition matrix from BSF-S1 returns it to the memoryless cluster. The exact filter is not a lower bound on regime-conditional ECE: a learned filter can fall below it on a seed where $\hat A$ over-weights the rare regime, at a cost on the other columns.}\label{fig:e1}\end{figure}
+Four things the table shows. First, the temporal hole is not a capacity artefact: the Bayes-optimal memoryless head, which has infinite capacity and is perfectly calibrated on the stationary stream (ECE $0.007$, the same as the exact filter), is the \emph{worst} row inside the rare regime ($0.193$) and after the shift ($0.146$), because a better memoryless head commits more precisely to the frozen prior. Second, the repairs behave as Lemma~\ref{lem:compose}(i) predicts: online recalibration from realised outcomes repairs the shifted-marginal row ($0.114\to0.027$) and leaves the within-sojourn row untouched ($0.160$), because it re-estimates one global prior rather than tracking the regime; a history-window head closes 88\% of the gap to the floor inside the rare regime and 73\% after the shift, but remains calibrated to a frozen prior. Third, both BSF-S1 variants match the exact-filter floor inside the rare regime and come within a factor of about two of it on the other columns (the unsupervised variant's stationary ECE is $2.3\times$ the floor), with the unsupervised variant tracking the oracle one throughout; the seed range on the learned filters is wide (regime-1 ECE $0.017$--$0.116$) because Baum--Welch occasionally mis-estimates the transition rates, which is the filter-misspecification failure mode of Section~\ref{sec:arch} and the reason Algorithm~3 verifies TCE before deployment. Fourth, the ablation isolates the cause: the same learned heads with $A=\mathbf 1\pi^\top$, $\pi$ the training marginal, reduce the filter to $b_t=g(o_t)$ and land on the Bayes-optimal memoryless row in every column (rare-regime ECE 0.191 against 0.193, shifted 0.144 against 0.146), so the whole improvement is due to the transition matrix and none to the per-regime heads.
 
 \subsection{E2: Trajectory calibration (Lemma~\ref{lem:compose}(ii)--(iv))}\label{sec:e2}
 Hop-level ECE of the memoryless head is identical on the stream and on its random shuffle on every seed, as Lemma~\ref{lem:compose}(iv) requires. The realised variance of its window error count is 1.83 times the binomial baseline that hop-level calibration implies; equation~\eqref{eq:varN} evaluated at the head's measured regime error rates predicts 1.86. The empirical lag covariance follows $\lambda^k\Var_\pi(e)$ of \eqref{eq:cov} with mean relative $L^2$ error 0.28 over $k\le20$.
@@ -400,12 +416,14 @@ Model & $\hat\varphi$ mean [min, max] & passes & KS rejects\\\midrule
 Memoryless & 1.72 [1.54, 1.95] & 0/5 & 5/5\\
 Bayes-optimal memoryless & 2.14 [1.90, 2.41] & 0/5 & 5/5\\
 BSF-S1 (oracle labels) & 1.09 [0.88, 1.31] & 2/5 & 1/5\\
+BSF-S1 (unsupervised regimes) & 1.15 [0.95, 1.40] & 3/5 & 4/5\\
+Ablation: $A=\mathbf 1\pi^\top$ & 2.10 [1.87, 2.31] & 0/5 & 5/5\\
 Exact filter (floor) & 0.99 [0.96, 1.03] & 5/5 & 0/5\\
 Control: memoryless, time-shuffled stream & 0.94 [0.88, 0.98] & 4/5 & 5/5\\
 \bottomrule\end{tabular}
 \caption{E2, $w=50$, five seeds; ``passes'' counts seeds whose $\hat\varphi$ confidence interval contains $1$, ``KS rejects'' seeds with $p<0.01$. The exact filter passes on every seed; the memoryless heads on none. The time-shuffled control has no clustering by construction: its $\hat\varphi$ returns to $\approx1$ while KS still rejects, which is why $\hat\varphi$ is the primary statistic and KS the secondary one.}\label{tab:e2}
 \end{table}
-The learned BSF-S1 passes on two seeds of five and fails on three: over-dispersed on the two seeds whose estimated switching rate is lowest ($\hat\varphi=1.26$ and $1.31$, $\hat a\approx0.005$--$0.007$ against $0.01$) and under-dispersed on one ($\hat\varphi=0.88$, interval $[0.78,0.98]$). This is the honesty anchor of Section~\ref{sec:threats} in numbers: trajectory calibration is a property of exact inference given the model, and a learned model whose $A$ is off in either direction is mis-dispersed by a corresponding amount. It is also why TCE is worth running: it separates the exact filter from its learned approximation, which hop-level ECE cannot ($0.007$ versus $0.011$ in Table~\ref{tab:e1}).
+The learned BSF-S1 passes on two seeds of five and fails on three: over-dispersed on the two seeds whose estimated switching rate is lowest ($\hat\varphi=1.26$ and $1.31$, $\hat a\approx0.005$--$0.007$ against $0.01$) and under-dispersed on one ($\hat\varphi=0.88$, interval $[0.78,0.98]$). The unsupervised variant passes the dispersion test on three seeds of five but KS rejects on four, consistent with its higher hop-level ECE; the memoryless ablation fails on every seed ($\hat\varphi$ 1.87--2.31), like the memoryless heads it reduces to. This is the honesty anchor of Section~\ref{sec:threats} in numbers: trajectory calibration is a property of exact inference given the model, and a learned model whose $A$ is off in either direction is mis-dispersed by a corresponding amount. It is also why TCE is worth running: it separates the exact filter from its learned approximation, which hop-level ECE cannot ($0.007$ versus $0.011$ in Table~\ref{tab:e1}).
 
 \subsection{E3: Cliff cascade (Lemma~\ref{lem:cliff})}\label{sec:e3}
 Three logistic gates on five-dimensional Gaussian evidence, $\tau=\tfrac12$. \emph{Single gate}, adversarial perturbation: crisp FM$(\varepsilon)/\varepsilon$ is 0.742, 0.739, 0.777, 0.784 for $\varepsilon\in\{0.005,0.01,0.02,0.05\}$ against the limit $2p(0)=0.798$; the fuzzy flip mass is exactly $0$ and AMS$/\varepsilon=0.207$, below the bound $\tfrac14$.
@@ -423,7 +441,9 @@ $\varepsilon$ & crisp, own adv. & t-norm + centroid, matched, own adv. & mean of
 \end{table}
 At matched base rate the single-collapse pipeline has about $0.7\times$ the crisp conjunction's flip mass under both perturbation models, exactly what Lemma~\ref{lem:cliff}(ii) predicts from $\sum_h2p_h\rho_h$ against $2p_u$ for one boundary; and a plain average of the three scores thresholded once achieves the same. This part of the effect is therefore a \emph{single-collapse} effect, not a t-norm effect, and the paper claims no more for it. The minimum t-norm thresholded at $\tfrac12$ reproduces the crisp conjunction bit for bit ($\min_h\sigma(z_h)\ge\tfrac12\iff z_h\ge0\ \forall h$): the actuator threshold, not the t-norm, decides whether a cliff exists, which is the content of the principle in Section~\ref{sec:principle}.
 
-\emph{Where the t-norm-specific content lies} is Lemma~\ref{lem:cliff}(iii)--(iv). Cascade: with hop $2$ placing weight $v$ on hop $1$'s output, $P(\text{gate 2 flips}\mid\text{gate 1 flipped})$ is 0.03, 0.05, 0.14, 0.23, 0.40, 0.48, 0.52 for $v\in\{0.05, 0.1, 0.3, 0.5, 1.0, 1.5, 3.0\}$, approximately $v\,p(0)$ for small $v$ and saturating near $\tfrac12$; it does not change with $\varepsilon$ over the grid at any $v$ (the per-$\varepsilon$ values are in the repository), which is the $\Theta(1)$ claim, while the fuzzy hop's membership moves by $O(\varepsilon)$. Coupling, $H=3$: with $N=4\times10^6$ so that the spread case has 22, 389, 3155, 24873 events at $\varepsilon\in\{0.02,0.05,0.1,0.2\}$, the log--log slope of $P(\text{all flip})$ against $\varepsilon$ is 1.00 with coincident crossing points, 3.05 with spread crossing points and 2.99 under independent perturbations, against the predicted $1$, $H$ and $H$.
+\emph{Where the t-norm-specific content lies} is Lemma~\ref{lem:cliff}(iii)--(iv). Cascade: with hop $2$ placing weight $v$ on hop $1$'s output, $P(\text{gate 2 flips}\mid\text{gate 1 flipped})$ is 0.03, 0.05, 0.14, 0.23, 0.40, 0.48, 0.52 for $v\in\{0.05, 0.1, 0.3, 0.5, 1.0, 1.5, 3.0\}$, approximately $v\,p(0)$ for small $v$ and saturating near $\tfrac12$; across $\varepsilon\in\{0.005,\dots,0.05\}$ it stays within 0.388--0.412 at $v=1$ and 0.022--0.028 at $v=0.05$, which is the $\Theta(1)$ claim, while the fuzzy hop's unconditional mean membership change grows linearly, from 0.00020 to 0.00203 at $v=1$. Coupling, $H=3$: with $N=4\times10^6$ so that the spread case has 22, 389, 3155, 24873 events at $\varepsilon\in\{0.02,0.05,0.1,0.2\}$, the log--log slope of $P(\text{all flip})$ against $\varepsilon$ is 1.00 with coincident crossing points, 3.05 with spread crossing points and 2.99 under independent perturbations, against the predicted $1$, $H$ and $H$ (Figure~\ref{fig:coupling}).
+\begin{figure}[t]\centering\includegraphics[width=0.5\textwidth]{figures/fig_coupling.pdf}
+\caption{E3, Lemma~\ref{lem:cliff}(iv). Probability that all three hops flip under a common-mode perturbation of size $\varepsilon$. Coincident thresholds give slope $1$; thresholds spread by a continuous density give slope $H=3$, the same as independent perturbations.}\label{fig:coupling}\end{figure}
 
 \subsection{E4: Composition algebra (an arithmetic identity)}
 Rule ``$A$ and $B$'' evaluated with $A$ entered once and twice. Idempotence gap $\E|\mathsf T(a,a,b)-\mathsf T(a,b)|$: minimum 0.000, product 0.084; the downstream decision at threshold $\tfrac12$ flips on 6.8\% of inputs under product and on none under minimum. Naive-Bayes multiplication of probabilities is numerically the product case; the difference is that it \emph{asserts independence} of two copies of one predicate. This is an identity ($a\cdot a\cdot b\ne a\cdot b$) rather than an experiment; it is reported because the flip rate is the operational cost that harness designers do not usually compute.
@@ -431,14 +451,37 @@ Rule ``$A$ and $B$'' evaluated with $A$ entered once and twice. Idempotence gap 
 \subsection{E5: Type-2 separation}
 Two borderline populations with mean degree $\tfrac12$: sharp, elicited from Beta$(50,50)$, and diffuse, from Beta$(1,1)$. The point head emits 0.502 and 0.507: the same object. The type-2 head fits Beta$(49.5,\,49.1)$ and Beta$(1.04,\,1.01)$. CRPS on the diffuse population: point head 0.251 (the MAE, $\to\tfrac14$), type-2 head 0.167 ($\to\tfrac16$); on the sharp population 0.039 and 0.027. A single number cannot say whether the degree is known; $Q$ can, and is rewarded for it by a proper score. The point head is the baseline that a scalar output type provides, not a strong competitor: any head with a distributional output separates these populations. The claim tested is only that the output \emph{type} must carry a distribution over the degree, and that a proper score rewards it.
 
-\subsection{Ablations not yet run}
-BSF-S1 with $A=I$, with $\mu$ thresholded, and with $Q$ collapsed to its mean; a sweep over $\lambda$; and a probabilistic classifier head as a stronger competitor to the type-2 head in E5. These are the natural next step for a replication.
+\subsection{E6: Lemma~\ref{lem:compose}(ii) across regime persistence}\label{sec:e6}
+E2 tests equation~\eqref{eq:varN} at one operating point. E6 sweeps the persistence $\lambda=1-a-b$ from $0$ to $0.98$ with the regime marginal held at $\pi=(0.8,0.2)$ via $(a,b)=(1-\lambda)(\pi_2,\pi_1)$, so that the Bayes-optimal memoryless head, which depends only on $\pi$, is the same function at every $\lambda$ and $\lambda$ is the only thing that varies. Because a memoryless rule satisfies the hypothesis of Lemma~\ref{lem:compose}(ii) exactly, the first columns are a Monte-Carlo check of an identity rather than independent evidence; the informative columns are the exact filter's. For each $\lambda$ and three seeds, the memoryless head's realised variance of the window error count ($w=50$, $2\times10^5$ steps) is compared with the binomial baseline and with \eqref{eq:varN}, and the exact filter's own TCE dispersion ratio is computed on a $2.5\times10^4$-step prefix.
+\begin{table}[h]\centering\scriptsize\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lccccccc@{}}\toprule
+$\lambda$ & realised / binomial & eq.~\eqref{eq:varN} & eq.~\eqref{eq:phi}, $w\to\infty$ & time-shuffled & exact filter $\hat\varphi$ & error rate, memoryless / filter\\\midrule
+0.00 & 1.007 [1.001, 1.014] & 1.000 & 1.00 & 0.981 & 1.05 & 0.215 / 0.214\\
+0.50 & 1.092 [1.078, 1.102] & 1.097 & 1.10 & 0.991 & 0.95 & 0.214 / 0.216\\
+0.80 & 1.331 [1.314, 1.354] & 1.343 & 1.38 & 0.990 & 1.00 & 0.214 / 0.211\\
+0.90 & 1.685 [1.613, 1.782] & 1.701 & 1.88 & 1.002 & 0.97 & 0.214 / 0.203\\
+0.95 & 2.149 [2.109, 2.176] & 2.149 & 2.82 & 0.997 & 1.04 & 0.213 / 0.197\\
+0.98 & 2.796 [2.769, 2.833] & 2.781 & 5.89 & 0.991 & 1.04 & 0.215 / 0.182\\
+\bottomrule\end{tabular}
+\caption{E6, Bayes-optimal memoryless head and exact filter. Equation~\eqref{eq:varN} predicts the memoryless head's overdispersion to within 1\% at every $\lambda$, and the time-shuffled stream stays at $1$. The asymptotic factor \eqref{eq:phi} overstates a $50$-step window's excess by a fraction of roughly $(1-\lambda)^{-1}/w$. The exact filter's dispersion ratio stays in $[0.89,1.11]$ and it passes TCE on 18/18 runs.}\label{tab:e6}
+\end{table}
+\begin{figure}[t]\centering
+\begin{subfigure}{0.49\textwidth}\centering\includegraphics[width=\linewidth]{figures/fig_lambda_sweep.pdf}\caption{Overdispersion against $\lambda$.}\end{subfigure}\hfill
+\begin{subfigure}{0.49\textwidth}\centering\includegraphics[width=\linewidth]{figures/fig_lagcov.pdf}\caption{Error autocovariance at $\lambda=0.95$.}\end{subfigure}
+\caption{E6, Lemma~\ref{lem:compose}(ii). (a) Bayes-optimal memoryless head: realised variance of the window error count relative to the binomial baseline that hop-level calibration implies, with eq.~\eqref{eq:varN} and its limit \eqref{eq:phi}; the exact filter's own dispersion ratio is shown for comparison. (b) Empirical lag autocovariance of the memoryless head's error indicator against $\lambda^k\Var_\pi(e)$ from eq.~\eqref{eq:cov}; relative $L^2$ error 0.10 over $k\le60$.}\label{fig:e6}
+\end{figure}
+Two things the exact-filter columns show that the identity cannot. The filter's trajectory calibration holds at every persistence level, including $\lambda=0$, where there is nothing to remember and it coincides with the memoryless head in error rate. And the value of memory grows with persistence: the filter's error rate falls from 0.214 to 0.182 as $\lambda$ rises, while the memoryless head's stays at 0.215.
+
+The closed forms of Lemma~\ref{lem:compose} were also checked directly at $a=0.05$, $b=0.10$, $e=(0.05,0.40)$, $T=50$ over $2\times10^5$ trajectories: $\Var(N_T)$ is 20.30 simulated against 20.31 from \eqref{eq:varN} and 6.94 for the binomial baseline, and $P(N_T=0)$ is 0.0071 against 0.0001 under independence.
+
+\subsection{Ablations and what remains}
+The memory ablation ($A=\mathbf 1\pi^\top$) is reported in E1 and E2. The remaining two ablations of the output object are covered by existing experiments rather than new ones: thresholding $\mu$ is the crisp pipeline of E3, and collapsing $Q$ to its mean is the point head of E5. Not yet run: a probabilistic classifier head as a stronger competitor to the type-2 head in E5, and experiments on a real decision stream.
 
 \section{Threats to Validity and Open Problems}\label{sec:threats}
 
 \paragraph{Jev is closed.} All statements are about the class of memoryless typed calibrated heads as publicly described; nothing here is an empirical refutation of Jev. Two public facts limit what we can assert. The Score primitive returns a bounded scalar plus a probability per ordered level, so some vagueness can be expressed by schema choice, though over a fixed level set rather than as a type-2 pair. The State object passed to each call may include whatever history the integrator chooses to serialise, so a harness can approximate memory by prompt construction. Neither changes the structural claim: no exact recursion over a latent regime exists inside the model, and no membership-plus-uncertainty pair exists in the output type.
 
-\paragraph{Oracle regime labels.} The oracle BSF-S1 rows in Section~\ref{sec:experiments} use regime labels a real deployment would not have. The unsupervised variant (two-state Gaussian-HMM EM on observations alone, 92\% label agreement) matches it on E1, which removes the concern for that stream; whether regimes remain identifiable on realistic evidence is the $K$-identifiability problem of Section~\ref{sec:arch} and is left open, and E2 was run only with the oracle variant.
+\paragraph{Oracle regime labels.} The oracle BSF-S1 rows in Section~\ref{sec:experiments} use regime labels a real deployment would not have. The unsupervised variant (two-state Gaussian-HMM EM on observations alone, 92\% label agreement) matches it on E1, which removes the concern for these streams; whether regimes remain identifiable on realistic evidence is the $K$-identifiability problem of Section~\ref{sec:arch} and is left open, and in E2 it passes the dispersion test on three seeds of five (oracle variant two) but KS rejects on four of five (oracle variant one), consistent with its higher hop-level ECE.
 
 \paragraph{Membership ground truth.} Elicited degrees depend on the elicitation protocol. The type-1/type-2 renormalisation across regimes (Section~\ref{sec:open}) is an open semantic question, stated as such: the architecture is designed so that the question is deferred to the actuator rather than answered implicitly by the model.
 
@@ -450,9 +493,9 @@ BSF-S1 with $A=I$, with $\mu$ thresholded, and with $Q$ collapsed to its mean; a
 
 \paragraph{What changes for benchmarking.} A benchmark that reports ECE alone certifies $\bar e$ and nothing about $\varphi$ or about action stability. We propose that decision-model benchmarks report TCE and AMS alongside ECE, on streams with a planted regime structure and on harnesses with planted coincident thresholds. Both metrics can be computed from the outside, against a closed model, using only its returned probabilities and a harness (for AMS, the random-perturbation variant). Two models with equal ECE are not equally safe, and a benchmark that cannot tell them apart is not measuring safety.
 
-\paragraph{Industrial precedent as evidence.} Fuzzy control, probabilistic forecasting, regime-switching econometrics and POMDP planning are four traditions with disjoint literatures, disjoint communities and disjoint failure histories. Each converged on carrying the uncollapsed object to the point of action. When independent traditions agree, the agreement is evidence about the problem rather than about the traditions.
+\paragraph{Industrial precedent as evidence.} Fuzzy control, probabilistic forecasting, regime-switching econometrics and POMDP planning are four traditions with largely separate literatures and communities. Each carries the uncollapsed object to the point of action. When separate traditions agree on a design, the agreement is suggestive evidence about the problem rather than about any one tradition; it is not a proof, and Section~\ref{sec:experiments} is where the claim is tested.
 
-\paragraph{Positioning.} This is not an anti-neural argument. In BSF-S1 the network does all the perception: it parameterises $A$, $g$, $h$, $\mu$ and $Q$, and none of those objects could be hand-built at the scale of real evidence. What the network should not do is the reasoning that a fifty-year-old algebra already does exactly. The synthesis is neuro-probabilistic-fuzzy: networks parameterise, algebras compose, and the actuator collapses.
+\paragraph{Positioning.} This is not an anti-neural argument. In BSF-S1 the network does all the perception: it parameterises $A$, $g$, $h$, $\mu$ and $Q$, and none of those objects could be hand-built at the scale of real evidence. What the network should not do is the reasoning that decades-old algebras already do exactly. The synthesis is neuro-probabilistic-fuzzy: networks parameterise, algebras compose, and the actuator collapses.
 
 \paragraph{Open problems.} (1) Type-2 filter semantics: the correct combination rule for regime-indexed memberships. (2) Learned parametric t-norms (Frank, Hamacher families) with interpretability preserved. (3) Belief-aware thresholds, $\tau$ as a function of $b_t$, and their interaction with Lemma~\ref{lem:cliff}. (4) A theory of trajectory calibration as a proper-scoring object in its own right.
 
@@ -461,7 +504,7 @@ BSF-S1 with $A=I$, with $\mu$ thresholded, and with $Q$ collapsed to its mean; a
 Two primitives, two lemmas, one principle, one architecture. System-one decision models are the right idea---software needs an interface it can depend on, and typed calibrated probabilities are a far better interface than strings---but the type signature is not yet finished. Give these models a memory of the world's hidden state and a language for its borderline cases, carry both to the point of action, and collapse nothing until that moment.
 
 \section*{Acknowledgments and AI-usage statement}
-The author used Claude Fable 5.1 (Anthropic) as a writing and coding assistant: it expanded outline bullets into prose, drafted the experiment code, and typeset the manuscript under the author's direction. All claims, lemmas, proofs, experimental design, interpretation of results and errors are the author's sole responsibility. No AI system is an author of this work. Code, results and the full revision history are at \url{https://github.com/dnakhoa/jev-deferred-crispification}.
+The author used Claude (Anthropic; the Fable 5.1 and Opus 5.5 models) as a writing and coding assistant: it expanded outline bullets into prose, drafted the experiment code, and typeset the manuscript under the author's direction. All claims, lemmas, proofs, experimental design, interpretation of results and errors are the author's sole responsibility. No AI system is an author of this work. Code, results and the full revision history are at \url{https://github.com/dnakhoa/jev-deferred-crispification}.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{99}
@@ -474,8 +517,8 @@ D.~Almeida.
 
 \bibitem[TypeSafe AI(2026)]{typesafe2026docs}
 TypeSafe AI.
-\newblock System One (concepts) and Primitives: Choice, Score, Noul.
-\newblock TypeSafe AI documentation, accessed 17 September 2026.
+\newblock System One; Primitives (Questions): Choice, Score, Noul.
+\newblock TypeSafe AI documentation, undated, accessed 1 October 2026.
 \newblock \url{https://docs.typesafe.ai/concepts/system-one}; \url{https://docs.typesafe.ai/primitives}
 
 \bibitem[Claburn(2026)]{claburn2026register}
@@ -502,12 +545,12 @@ E.~H. Mamdani and S.~Assilian.
 \bibitem[Rabiner(1989)]{rabiner1989}
 L.~R. Rabiner.
 \newblock A tutorial on hidden Markov models and selected applications in speech recognition.
-\newblock \emph{Proceedings of the IEEE}, 77(2):257--286, 1989.
+\newblock \emph{Proceedings of the IEEE}, 77(2):257--286, 1989. doi:10.1109/5.18626.
 
 \bibitem[Hamilton(1989)]{hamilton1989}
 J.~D. Hamilton.
 \newblock A new approach to the economic analysis of nonstationary time series and the business cycle.
-\newblock \emph{Econometrica}, 57(2):357--384, 1989.
+\newblock \emph{Econometrica}, 57(2):357--384, 1989. doi:10.2307/1912559.
 
 \bibitem[Guo et~al.(2017)]{guo2017}
 C.~Guo, G.~Pleiss, Y.~Sun, and K.~Q. Weinberger.
@@ -543,6 +586,81 @@ E.~P. Klement, R.~Mesiar, and E.~Pap.
 J.~M. Mendel.
 \newblock Type-2 fuzzy sets and systems: an overview (corrected reprint).
 \newblock \emph{IEEE Computational Intelligence Magazine}, 2(2):20--29, May 2007. Corrected reprint of 2(1):20--29, February 2007.
+
+\bibitem[Saerens et~al.(2002)]{saerens2002}
+M.~Saerens, P.~Latinne, and C.~Decaestecker.
+\newblock Adjusting the outputs of a classifier to new a priori probabilities: a simple procedure.
+\newblock \emph{Neural Computation}, 14(1):21--41, 2002. doi:10.1162/089976602753284446.
+
+\bibitem[Lipton et~al.(2018)]{lipton2018}
+Z.~Lipton, Y.-X. Wang, and A.~Smola.
+\newblock Detecting and correcting for label shift with black box predictors.
+\newblock In \emph{Proceedings of ICML}, PMLR 80:3122--3130, 2018.
+
+\bibitem[Dawid(1982)]{dawid1982}
+A.~P. Dawid.
+\newblock The well-calibrated {B}ayesian.
+\newblock \emph{Journal of the American Statistical Association}, 77(379):605--610, 1982. doi:10.1080/01621459.1982.10477856.
+
+\bibitem[Foster and Vohra(1998)]{foster1998}
+D.~P. Foster and R.~V. Vohra.
+\newblock Asymptotic calibration.
+\newblock \emph{Biometrika}, 85(2):379--390, 1998. doi:10.1093/biomet/85.2.379.
+
+\bibitem[H{\'e}bert-Johnson et~al.(2018)]{hebertjohnson2018}
+U.~H{\'e}bert-Johnson, M.~P. Kim, O.~Reingold, and G.~N. Rothblum.
+\newblock Multicalibration: calibration for the (computationally-identifiable) masses.
+\newblock In \emph{Proceedings of ICML}, PMLR 80:1939--1948, 2018.
+
+\bibitem[Ovadia et~al.(2019)]{ovadia2019}
+Y.~Ovadia, E.~Fertig, J.~Ren, Z.~Nado, D.~Sculley, S.~Nowozin, J.~Dillon, B.~Lakshminarayanan, and J.~Snoek.
+\newblock Can you trust your model's uncertainty? {E}valuating predictive uncertainty under dataset shift.
+\newblock In \emph{Advances in Neural Information Processing Systems 32}, 2019.
+
+\bibitem[Gibbs and Cand{\`e}s(2021)]{gibbs2021}
+I.~Gibbs and E.~J. Cand{\`e}s.
+\newblock Adaptive conformal inference under distribution shift.
+\newblock In \emph{Advances in Neural Information Processing Systems 34}, pages 1660--1672, 2021.
+
+\bibitem[Zadeh(1968)]{zadeh1968}
+L.~A. Zadeh.
+\newblock Probability measures of fuzzy events.
+\newblock \emph{Journal of Mathematical Analysis and Applications}, 23(2):421--427, 1968. doi:10.1016/0022-247X(68)90078-4.
+
+\bibitem[H{\"u}llermeier and Waegeman(2021)]{hullermeier2021}
+E.~H{\"u}llermeier and W.~Waegeman.
+\newblock Aleatoric and epistemic uncertainty in machine learning: an introduction to concepts and methods.
+\newblock \emph{Machine Learning}, 110(3):457--506, 2021. doi:10.1007/s10994-021-05946-3.
+
+\bibitem[Gneiting et~al.(2007)]{gneiting2007sharp}
+T.~Gneiting, F.~Balabdaoui, and A.~E. Raftery.
+\newblock Probabilistic forecasts, calibration and sharpness.
+\newblock \emph{Journal of the Royal Statistical Society: Series B}, 69(2):243--268, 2007. doi:10.1111/j.1467-9868.2007.00587.x.
+
+\bibitem[Czado et~al.(2009)]{czado2009}
+C.~Czado, T.~Gneiting, and L.~Held.
+\newblock Predictive model assessment for count data.
+\newblock \emph{Biometrics}, 65(4):1254--1261, 2009. doi:10.1111/j.1541-0420.2009.01191.x.
+
+\bibitem[Chib(1996)]{chib1996}
+S.~Chib.
+\newblock Calculating posterior distributions and modal estimates in {M}arkov mixture models.
+\newblock \emph{Journal of Econometrics}, 75(1):79--97, 1996. doi:10.1016/0304-4076(95)01770-4.
+
+\bibitem[Fr{\"u}hwirth-Schnatter(1994)]{fruhwirth1994}
+S.~Fr{\"u}hwirth-Schnatter.
+\newblock Data augmentation and dynamic linear models.
+\newblock \emph{Journal of Time Series Analysis}, 15(2):183--202, 1994. doi:10.1111/j.1467-9892.1994.tb00184.x.
+
+\bibitem[Carter and Kohn(1994)]{carter1994}
+C.~K. Carter and R.~Kohn.
+\newblock On {G}ibbs sampling for state space models.
+\newblock \emph{Biometrika}, 81(3):541--553, 1994. doi:10.1093/biomet/81.3.541.
+
+\bibitem[Kull et~al.(2019)]{kull2019}
+M.~Kull, M.~Perello~Nieto, M.~K{\"a}ngsepp, T.~Silva~Filho, H.~Song, and P.~Flach.
+\newblock Beyond temperature scaling: obtaining well-calibrated multi-class probabilities with {D}irichlet calibration.
+\newblock In \emph{Advances in Neural Information Processing Systems 32}, 2019.
 
 \end{thebibliography}
 
@@ -594,6 +712,7 @@ Lower bound: for $x$ with $\tau_h-c\varepsilon\le f_h(x)<\tau_h$, moving distanc
 \end{proof}
 
 \section{Forward-Filter/Backward-Sample for TCE}\label{app:ffbs}
+Forward-filtering backward-sampling draws whole latent paths from their joint posterior; the sampler was proposed at about the same time by \citet{carter1994} and \citet{fruhwirth1994}, who named it, and \citet{chib1996} gives the discrete-state recursion for Markov mixture (Markov-switching) models.
 Run Algorithm~1 to obtain $b_{1:T}$. Sample $s_T\sim b_T$; for $t=T-1,\dots,1$ sample $s_t\propto b_t(s)A_{s,s_{t+1}}$; draw $E_t\sim\mathrm{Bernoulli}(1-h_{s_t}(o_t)[d^\ast_t])$; repeat $R$ times to obtain the implied distribution of $N_w$. The memoryless head has no joint model beyond independence, so its implied distribution is Poisson-binomial with its own $p_t$.
 
 \section{Synthetic Generators}\label{app:gen}
@@ -609,6 +728,6 @@ Run Algorithm~1 to obtain $b_{1:T}$. Sample $s_T\sim b_T$; for $t=T-1,\dots,1$ s
   \State \Return $(o,\mu^{\mathrm{elicited}})$
 \EndFunction
 \end{algorithmic}
-The experiments of Section~\ref{sec:experiments} use $\lambda=0.95$; sweeping $\lambda$ via $(a,b)$ is a natural extension. Choose $(w_s,c_s)$ so that $P(d\mid o,s)$ differs across $s$, otherwise $\gamma(o)\equiv0$ and E1 is vacuous by design.
+E1 and E2 use $\lambda=0.95$; E6 sweeps $\lambda\in[0,0.98]$ at fixed $\pi$ via $(a,b)=(1-\lambda)(\pi_2,\pi_1)$. Choose $(w_s,c_s)$ so that $P(d\mid o,s)$ differs across $s$, otherwise $\gamma(o)\equiv0$ and E1 is vacuous by design.
 
 \end{document}

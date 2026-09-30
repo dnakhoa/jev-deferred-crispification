@@ -64,6 +64,9 @@ def run(seed=0, seeds=(0, 1, 2, 3, 4), T_train=30000, T_test=25000, w=50, R=100)
         o2, d2, s2, _, _ = regime_stream(T_test, a, b, rng)
         nwin = T_test // w; T = nwin * w; o2, d2, s2 = o2[:T], d2[:T], s2[:T]
         ml = MemorylessHead().fit(o, d); bs = BSFS1().fit(o, d, s); ex = ExactFilter(A, pi); om = OracleMemoryless(pi)
+        g, Ah, _ = ghmm_em(o, seed=sd); sh = g.argmax(1)
+        if (sh == s).mean() < .5: sh = 1 - sh; Ah = Ah[::-1, ::-1]
+        bsu = BSFS1().fit(o, d, sh, A_init=Ah); bsn = without_memory(bs)
         res = {"seed": sd}
         # memoryless-type heads: implied joint = independence
         for name, p in (("memoryless", ml.predict(o2)), ("oracle_memoryless", om.predict(o2))):
@@ -89,13 +92,14 @@ def run(seed=0, seeds=(0, 1, 2, 3, 4), T_train=30000, T_test=25000, w=50, R=100)
                 vs, pits = implied_independent(1 - np.maximum(ps, 1 - ps), reals, w, rng)
                 res["memoryless_shuffled_control"] = tce(reals, vs, pits, rng)
         # filter models: implied joint = FFBS
-        for name, mdl in (("bsf_s1_oracle_labels", bs), ("exact_filter", ex)):
+        for name, mdl in (("bsf_s1_oracle_labels", bs), ("bsf_s1_unsupervised", bsu), ("bsf_s1_no_memory", bsn), ("exact_filter", ex)):
             p, bel, H = mdl.predict(o2); dec = (p >= .5).astype(int); err = (dec != d2).astype(int)
             real = np.array([err[i*w:(i+1)*w].sum() for i in range(nwin)])
             v, pit = implied_ffbs(bel, mdl.A, H, dec, real, w, rng, R=R)
             res[name] = tce(real, v, pit, rng)
+            if name != "exact_filter": res[name]["A_hat"] = np.asarray(mdl.A).tolist()
         out["per_seed"].append(res)
-    names = ["memoryless", "oracle_memoryless", "bsf_s1_oracle_labels", "exact_filter", "memoryless_shuffled_control"]
+    names = ["memoryless", "oracle_memoryless", "bsf_s1_oracle_labels", "bsf_s1_unsupervised", "bsf_s1_no_memory", "exact_filter", "memoryless_shuffled_control"]
     out["summary"] = {n: {"phi_mean": float(np.mean([r[n]["phi_hat"] for r in out["per_seed"]])),
                           "phi_min": float(np.min([r[n]["phi_hat"] for r in out["per_seed"]])),
                           "phi_max": float(np.max([r[n]["phi_hat"] for r in out["per_seed"]])),

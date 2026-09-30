@@ -63,9 +63,16 @@ def run(seed=0, N=200000, n=5, H=3):
     base_rates = {"crisp": float(base), "tnorm_centroid_at_tau_half": float(np.mean(u0 >= .5)), "matched_tau_u": tau_u, "matched_tau_mean": tau_m}
     min_identity = bool(np.array_equal((mn0 >= .5).astype(int), a0))
     # (c) cascade vs v
-    near = np.abs(Z[:, 0]) <= 0.01; g1 = (Z[:, 0] >= 0).astype(float)
-    cascade = [{"v": v, "P_hop2_flips_given_hop1": float(np.mean((((Z[:, 1] + v * g1) >= 0) != ((Z[:, 1] + v * (1 - g1)) >= 0))[near])),
-                "v_times_p0": v * 0.39894} for v in (0.05, 0.1, 0.3, 0.5, 1.0, 1.5, 3.0)]
+    g1 = (Z[:, 0] >= 0).astype(float)
+    def casc(v, e):
+        near = np.abs(Z[:, 0]) <= e
+        return float(np.mean((((Z[:, 1] + v * g1) >= 0) != ((Z[:, 1] + v * (1 - g1)) >= 0))[near]))
+    def fuzzy_hop2(v, e):
+        mu1 = expit(Z[:, 0]); mu1p = expit(Z[:, 0] + e)
+        return float(np.mean(np.abs(expit(Z[:, 1] + v * mu1p) - expit(Z[:, 1] + v * mu1))))
+    cascade = [{"v": v, "P_hop2_flips_given_hop1": casc(v, 0.01), "v_times_p0": v * 0.39894,
+                "per_eps": {str(e): casc(v, e) for e in eps_grid},
+                "fuzzy_hop2_change_per_eps": {str(e): fuzzy_hop2(v, e) for e in eps_grid}} for v in (0.05, 0.1, 0.3, 0.5, 1.0, 1.5, 3.0)]
     # (d) coupling slopes
     N2 = 4_000_000; z = rng.standard_normal(N2); xi = 0.3 * rng.standard_normal((N2, H)); lB = z[:, None] + xi
     eg = np.array([0.02, 0.05, 0.1, 0.2])

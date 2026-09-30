@@ -1,15 +1,15 @@
-"""Run E1-E5 and write results/results.json + results/RESULTS.md.
-CPU only. E1 and E2 run five seeds each (~10 min total on a laptop).
+"""Run E1-E6 and write results/results.json + results/RESULTS.md.
+CPU only. E1 and E2 run five seeds each; the whole suite takes under twenty minutes on a laptop.
 Usage: python3 experiments/run_all.py
 """
 import json, sys, time, os
 sys.path.insert(0, os.path.dirname(__file__))
-import e1_regime_shift, e2_trajectory_calibration, e3_cliff_cascade, e4_composition_algebra, e5_type2_separation
+import e1_regime_shift, e2_trajectory_calibration, e3_cliff_cascade, e4_composition_algebra, e5_type2_separation, e6_lambda_sweep
 
 out_dir = os.path.join(os.path.dirname(__file__), "..", "results"); os.makedirs(out_dir, exist_ok=True)
 results = {}
 for name, mod in [("E1", e1_regime_shift), ("E2", e2_trajectory_calibration), ("E3", e3_cliff_cascade),
-                  ("E4", e4_composition_algebra), ("E5", e5_type2_separation)]:
+                  ("E4", e4_composition_algebra), ("E5", e5_type2_separation), ("E6", e6_lambda_sweep)]:
     cached = os.path.join(out_dir, f"{name.lower()}.json")
     t0 = time.time()
     if os.environ.get("USE_CACHED") and os.path.exists(cached):
@@ -20,14 +20,15 @@ for name, mod in [("E1", e1_regime_shift), ("E2", e2_trajectory_calibration), ("
     print(f"{name} done in {results[name]['_seconds']}s", flush=True)
 json.dump(results, open(os.path.join(out_dir, "results.json"), "w"), indent=1)
 
-E1, E2, E3, E4, E5 = (results[k] for k in ("E1", "E2", "E3", "E4", "E5"))
+E1, E2, E3, E4, E5, E6 = (results[k] for k in ("E1", "E2", "E3", "E4", "E5", "E6"))
 def mr(d): return f"{d['mean']:.3f} [{d['min']:.3f}, {d['max']:.3f}]"
 S1 = E1["summary"]; S2 = E2["summary"]; B = E3["base_rates"]; C = E3["coupling"]
 names1 = [("memoryless", "Memoryless head (quad. logistic)"), ("oracle_memoryless", "Bayes-optimal memoryless head"),
           ("windowed_L10", "History-window head, L=10"), ("memoryless_online_platt", "Memoryless + online Platt (W=500)"),
           ("bsf_s1_oracle_labels", "BSF-S1, oracle regime labels"), ("bsf_s1_unsupervised", "BSF-S1, unsupervised regimes"),
-          ("exact_filter", "Exact filter, true (A, g, h) — floor")]
+          ("bsf_s1_no_memory", "Ablation: BSF-S1 heads, A = 1πᵀ (no memory)"), ("exact_filter", "Exact filter, true (A, g, h) — floor")]
 names2 = [("memoryless", "Memoryless"), ("oracle_memoryless", "Bayes-optimal memoryless"), ("bsf_s1_oracle_labels", "BSF-S1 (oracle labels)"),
+          ("bsf_s1_unsupervised", "BSF-S1 (unsupervised regimes)"), ("bsf_s1_no_memory", "Ablation: A = 1πᵀ"),
           ("exact_filter", "Exact filter (floor)"), ("memoryless_shuffled_control", "Control: memoryless on shuffled stream")]
 agree = 100 * sum(m['unsup_label_agreement'] for m in E1['per_seed']['_meta']) / len(E1['per_seed']['_meta'])
 md = ["# Results — round 2 (five seeds; mean [min, max])\n", "Regenerate with `python3 experiments/run_all.py`. CPU only.\n",
@@ -57,6 +58,10 @@ f"\nCoupling (N = 4×10⁶ for the spread case, {C['spread_event_counts']} event
 "\n## E5 — Type-2 separation\n",
 "| Population | point-head output | point CRPS (=MAE) | Q fit (α, β) | Q CRPS |", "|---|---|---|---|---|",
 *[f"| {k} | {E5[k]['point_head_output']:.3f} | {E5[k]['point_head_CRPS(=MAE)']:.3f} | ({E5[k]['Q_head_fit_(alpha,beta)'][0]:.1f}, {E5[k]['Q_head_fit_(alpha,beta)'][1]:.1f}) | {E5[k]['Q_head_CRPS']:.3f} |" for k in ('sharp', 'diffuse')],
+ "\n## E6 — Lemma 1(ii) across regime persistence λ (π fixed at (0.8, 0.2), w = 50, Bayes-optimal memoryless head, 3 seeds)\n",
+"| λ | realised Var(N_w) / binomial, mean [min, max] | eq. 3.5 | eq. 3.6 (w → ∞) | shuffled stream |", "|---|---|---|---|---|",
+*[f"| {r['lambda']} | {r['realised_mean']:.3f} [{r['realised_min']:.3f}, {r['realised_max']:.3f}] | {r['theory_mean']:.3f} | {r['asymptotic_eq36']:.2f} | {r['shuffled_mean']:.3f} |" for r in E6['sweep']],
+f"\nLag covariance at λ = 0.95, k = 1..60: relative L2 error vs λ^k·Var_π(e) = {E6['lagcov']['rel_l2_error']:.3f}. Lemma 1 closed-form check: Var(N_T) simulated {E6['lemma1_check']['var_sim']:.2f} vs eq. 3.5 {E6['lemma1_check']['var_eq35']:.2f} (binomial {E6['lemma1_check']['var_binomial']:.2f}); P(all correct) {E6['lemma1_check']['p_all_correct_sim']:.4f} vs independent {E6['lemma1_check']['p_all_correct_independent']:.4f}.\n",
 ]
 open(os.path.join(out_dir, "RESULTS.md"), "w").write("\n".join(md))
 print("wrote results/results.json and results/RESULTS.md")
