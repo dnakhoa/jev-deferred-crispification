@@ -1,4 +1,4 @@
-"""Shared machinery for E1-E5.
+"""Shared machinery for E1-E6.
 
 CPU only, numpy + scipy. Every model here is deliberately tiny: the paper's
 claims are about the *output object and its composition*, not about capacity,
@@ -340,3 +340,15 @@ def ghmm_em(o, iters=60, seed=0):
 def nll(p, y):
     p = np.clip(p, 1e-9, 1 - 1e-9)
     return float(-np.mean(y * np.log(p) + (1 - y) * np.log(1 - p)))
+
+
+def without_memory(model):
+    """Ablation (v1.3): the same learned heads with the transition matrix replaced by
+    A = 1 pi^T, i.e. regimes redrawn i.i.d. every step. The filter then reduces to a
+    per-observation posterior: everything BSF-S1 gains over this row is due to A."""
+    import copy
+    m = copy.copy(model)
+    # Use pi_train (stored with g), NOT stationary(A_hat): the scaled likelihood divides by
+    # pi_train, so the i.i.d. prior must be pi_train for b_t to reduce to g(o_t) exactly.
+    m.A = np.outer(np.ones(len(model.pi)), model.pi)
+    return m

@@ -1,0 +1,31 @@
+\begin{tikzpicture}[
+  box/.style={draw=black!70, rounded corners=2pt, align=center, font=\scriptsize, minimum height=7mm, inner sep=3pt, fill=black!3},
+  obj/.style={draw=black!70, dashed, rounded corners=2pt, align=center, font=\scriptsize, minimum height=7mm, inner sep=3pt},
+  col/.style={diamond, fill=black, inner sep=1.6pt},
+  arr/.style={-{Stealth[length=2mm]}, black!70},
+  lab/.style={font=\scriptsize\itshape, anchor=west}]
+% typed pipeline
+\node[lab] at (-0.3,1.25) {(a) Typed pipeline: collapse at every hop};
+\node[box] (o1) at (0,0) {evidence\\$o_t$};
+\node[box, right=5mm of o1] (h1) {typed head\\$P(d\mid o_t)$};
+\node[col, right=4mm of h1] (c1) {};
+\node[box, right=4mm of c1] (r1) {harness rule\\on booleans};
+\node[col, right=4mm of r1] (c2) {};
+\node[box, right=4mm of c2] (r2) {next hop\\(consumes $a_h$)};
+\node[col, right=4mm of r2] (c3) {};
+\node[box, right=4mm of c3] (a1) {action};
+\foreach \x/\y in {o1/h1,h1/c1,c1/r1,r1/c2,c2/r2,r2/c3,c3/a1} \draw[arr] (\x) -- (\y);
+\node[font=\tiny, below=1mm of c1] {$\tau_1$}; \node[font=\tiny, below=1mm of c2] {$\tau_2$}; \node[font=\tiny, below=1mm of c3] {$\tau_3$};
+\node[font=\tiny, align=center, text=black!70] at ([yshift=-7mm]c2) {Lemma 2(iii)--(iv): each $\tau$ is a cliff, and cliffs cascade};
+% deferred
+\node[lab] at (-0.3,-1.95) {(b) BSF-S1: carry the structure, collapse once};
+\node[box] (o2) at (0,-3.2) {evidence\\$o_t$};
+\node[box, right=5mm of o2] (e2) {emission\\heads $g,h,\mu,Q$};
+\node[obj, right=5mm of e2] (O) {$O_t=(\mu_t,\,Q_t,\,\Delta b_t)$\\uncollapsed};
+\node[box, right=5mm of O] (f) {filter $\odot\,A$ ;\\t-norm rule base};
+\node[col, right=4mm of f] (c4) {};
+\node[box, right=4mm of c4] (a2) {action};
+\foreach \x/\y in {o2/e2,e2/O,O/f,f/c4,c4/a2} \draw[arr] (\x) -- (\y);
+\draw[arr] ([xshift=6mm]f.south) -- ++(0,-5mm) -| node[pos=0.25, font=\tiny, below] {$b_t\to\tilde b_{t+1}=A^\top b_t$ (Lemma 1: memory)} ([xshift=-6mm]f.south);
+\node[font=\tiny, above=1mm of c4, align=center] {single\\collapse};
+\end{tikzpicture}

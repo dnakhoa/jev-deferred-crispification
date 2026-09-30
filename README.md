@@ -2,7 +2,7 @@
 
 **A position paper on TypeSafe AI's Jev and the "System One" class of decision models — and the two mathematical primitives they leave out.**
 
-> **Anh Khoa Doan Ngoc** · Preprint v1.2 · 17 September 2026 · **[Download the PDF](paper.pdf)** · [LaTeX source](paper.tex) · CC BY 4.0
+> **Anh Khoa Doan Ngoc** · Preprint v1.3 · 1 October 2026 · **[Download the PDF](paper.pdf)** · [LaTeX source](paper.tex) · CC BY 4.0
 >
 > [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22801506.svg)](https://doi.org/10.5281/zenodo.22801506)
 
@@ -46,12 +46,13 @@ TypeSafe's own integration guidance is to "ask independent questions together �
 - **TCE** (trajectory calibration error): does the model's implied distribution of *errors per window* match reality? Hop-level ECE cannot tell you.
 - **AMS** (action-mass sensitivity): how much action mass moves under an ε-perturbation of evidence?
 
-## Reproduce everything (no GPU; ~1 minute on a laptop)
+## Reproduce everything (no GPU; CPU only)
 
 ```bash
 python3 experiments/verify_lemma1.py     # closed forms of Lemma 1 vs simulation
 python3 experiments/verify_lemma2.py     # cliff cascade: typed+threshold vs fuzzy+defuzzify, adversarial and Gaussian noise
-python3 experiments/run_all.py           # E1–E5 -> results/RESULTS.md and results/results.json
+python3 experiments/run_all.py           # E1–E6 -> results/RESULTS.md and results/results.json
+python3 experiments/make_figures.py      # figures/*.pdf from results/results.json
 ```
 
 Only NumPy and SciPy are required. On Google Colab: `!git clone https://github.com/dnakhoa/jev-deferred-crispification && cd jev-deferred-crispification && python3 experiments/run_all.py`.
@@ -62,14 +63,18 @@ Only NumPy and SciPy are required. On Google Colab: `!git clone https://github.c
 |---|---|---|---|---|
 | E1 ECE inside the rare regime | 0.156 | **0.193** (more capacity, deeper hole) | 0.061 | 0.066 |
 | E1 ECE after regime shift (stale A) | 0.114 | 0.146 | 0.021 | 0.011 |
-| E2 TCE passes (dispersion CI ∋ 1), of 5 seeds | 0 | 0 | 2 | 5 |
+| E1 ablation: BSF-S1 heads without the transition matrix (A = 1πᵀ), rare-regime ECE | — | 0.193 | 0.191 (identical to memoryless) | — |
+| E2 TCE passes (dispersion CI ∋ 1), of 5 seeds | 0 | 0 | 2 (oracle labels), 3 (unsupervised), 0 (no-memory ablation) | 5 |
 | E2 dispersion vs binomial baseline | 1.83 (eq. 3.5 predicts 1.86) | — | — | — |
 | E3 flip mass, fair comparison (matched base rate, own adversary) | 1.0× (crisp conjunction) | — | 0.7× (single collapse; a thresholded mean gets the same) | — |
 | E3 cascade P(gate 2 flips \| gate 1 flipped), any ε | 0.03–0.52 depending on coupling weight (Θ(1)) | — | O(ε) | — |
 | E3 all-hops-flip slope vs ε (coincident / spread / independent) | 1.00 / 3.05 / 2.99 (theory 1 / 3 / 3) | | | |
 | E5 CRPS on a diffuse borderline population | 0.25 (point output) | — | 0.17 (type-2 Q) | — |
+| E6 eq. 3.5 vs simulated overdispersion, λ from 0 to 0.98 | within 1% at every λ (1.00 → 2.80) | | | exact filter passes TCE on 18/18 runs; its error rate falls 0.214 → 0.182 as λ rises |
 
-What the adversarial review changed: the earlier "25–60×" E3 headline was an artefact of mismatched base rates and a one-sided adversary and is withdrawn; the honest single-collapse effect is 0.7×, and the t-norm-specific content is the cascade and coincident-threshold results. Online recalibration fixes the shifted-marginal row but not the within-regime row; a history-window head halves the gap. The learned BSF-S1 fails the trajectory test on 3 of 5 seeds where Baum–Welch misestimates the transition rates, which is exactly the filter-misspecification failure mode the paper names.
+**v1.3** adds a related-work section positioning the filter against prior-shift correction, sequential calibration and multicalibration; an ablation showing BSF-S1's gain is due to its transition matrix; E6, confirming eq. 3.5 across regime persistence; and five figures.
+
+What the v1.2 adversarial review changed: the earlier "25–60×" E3 headline was an artefact of mismatched base rates and a one-sided adversary and is withdrawn; the honest single-collapse effect is 0.7×, and the t-norm-specific content is the cascade and coincident-threshold results. Online recalibration fixes the shifted-marginal row but not the within-regime row; a history-window head halves the gap. The learned BSF-S1 fails the trajectory test on 3 of 5 seeds where Baum–Welch misestimates the transition rates, which is exactly the filter-misspecification failure mode the paper names.
 
 ## Status
 

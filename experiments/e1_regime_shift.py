@@ -7,6 +7,7 @@ Five seeds, mean ± range. Rows:
   memoryless + online Platt           sliding-window recalibration from realised outcomes
   BSF-S1 (oracle regime labels)       learned filter, labels for g and A-init
   BSF-S1 (unsupervised regimes)       labels replaced by a Gaussian-HMM EM on o alone
+  BSF-S1 without memory (A = 1 pi^T)  ablation: same heads, no temporal coupling
   exact filter (true A, g, h)         the achievable floor for every metric
 Columns: ECE stationary / regime 1 / shifted; NLL and accuracy on the stationary stream; accuracy shifted.
 Regime-conditional ECE conditions on the true regime, which is outside the filter's
@@ -36,6 +37,7 @@ def run(seed=0, seeds=(0, 1, 2, 3, 4), T_train=30000, T_test=30000):
             "memoryless_online_platt": (online_platt(ml.predict(o2), d2), online_platt(ml.predict(o3), d3)),
             "bsf_s1_oracle_labels": (bs.predict(o2)[0], bs.predict(o3)[0]),
             "bsf_s1_unsupervised": (bsu.predict(o2)[0], bsu.predict(o3)[0]),
+            "bsf_s1_no_memory": (without_memory(bs).predict(o2)[0], without_memory(bs).predict(o3)[0]),
             "exact_filter": (ExactFilter(A, pi).predict(o2)[0], ExactFilter(A, pi).predict(o3)[0]),
         }
         for k, (p2, p3) in models.items():

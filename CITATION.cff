@@ -6,10 +6,10 @@ authors:
     given-names: Anh Khoa
 type: article
 status: preprint
-date-released: 2026-09-17
-version: "1.2"
+date-released: 2026-10-01
+version: "1.3"
 repository-code: "https://github.com/dnakhoa/jev-deferred-crispification"
-doi: 10.5281/zenodo.22801506
+doi: 10.5281/zenodo.22801505
 keywords:
   - Jev
   - TypeSafe AI
